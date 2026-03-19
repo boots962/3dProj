@@ -5,6 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+
 #include <map>
 #include <utility>
 #include <cmath>
@@ -18,6 +19,8 @@
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
+
+
 
 const unsigned int SCR_WIDTH = 1800;
 const unsigned int SCR_HEIGHT = 1000;
@@ -35,6 +38,7 @@ int renderDistance = 3;
 // Timing state
 float deltaTime = 0.0f;	// Time between current frame and last frame
 float lastFrame = 0.0f;
+
 
 const char *vertexShaderSource = "#version 330 core\n"
     "layout (location = 0) in vec3 aPos;\n"
@@ -67,6 +71,7 @@ int main()
 
 
     // glfw window creation
+    Camera cam;
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Voxel Engine", NULL, NULL);
     if (window == NULL)
     {
@@ -90,22 +95,6 @@ int main()
     chunk.populateChunk();
     chunk.buildMesh();
 
-    // 2. Setup OpenGL Buffersd
-    unsigned int VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    // Note: We deleted the EBO because our mesh builder generates full triangles, not indices.
-
-    glBindVertexArray(VAO);
-
-    // 3. Send the generated mesh data from the class to the GPU!
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, chunk.meshVertices.size() * sizeof(float), chunk.meshVertices.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glBindVertexArray(0);
 
     // Compile Shaders
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -138,50 +127,43 @@ int main()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // render loop
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(window)) //MAIN RENDER LOOP
     {
-        // Per-frame time logic
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // input
         processInput(window);
         
-        // render
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
         glUseProgram(shaderProgram);
 
-        // Update View and Projection matrices
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-        
-        // Draw the 16x16 Chunk
-        // Draw the 16x16 Chunk
+       
         int playerChunkX = static_cast<int>(std::floor(camera.Position.x / CHUNK_SIZE));
         int playerChunkZ = static_cast<int>(std::floor(camera.Position.z / CHUNK_SIZE));
-
+        std::string title = "x: "+ (std::to_string(camera.Position.x)) + "  y: " + std::to_string(camera.Position.x);
+        glfwSetWindowTitle(window, title.c_str());
+         
         // --- 2. UPDATE RENDER DISTANCE (Spawn missing chunks) ---
         for (int x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
             for (int z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
                 
                 std::pair<int, int> chunkCoord(x, z);
                 
-                // If this coordinate is NOT in our map, create it!
                 if (activeChunks.find(chunkCoord) == activeChunks.end()) {
                     
-                    // Create a new chunk dynamically
                     ChunkMesh* newChunk = new ChunkMesh(x, z);
                     newChunk->populateChunk();
                     newChunk->buildMesh();
-                    newChunk->memory(); // Send to GPU
-                    
-                    // Save it to the map
+                    newChunk->memory(); 
+                    \
                     activeChunks[chunkCoord] = newChunk;
                 }
             }
@@ -203,21 +185,16 @@ int main()
             int vertexCount = chunk->meshVertices.size() / 3;
             glDrawArrays(GL_TRIANGLES, 0, vertexCount);
         }
-        // glfw: swap buffers and poll IO events
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    // glfw: terminate
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
 
     glfwTerminate();
     return 0;
 }
 
-// process all input: query GLFW whether relevant keys are pressed/released this frame
 void processInput(GLFWwindow *window)
 {
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -237,7 +214,7 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(DOWN, deltaTime);
 }
 
-// glfw: whenever the mouse moves, this callback is called
+
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
     float xpos = static_cast<float>(xposIn);
@@ -251,7 +228,7 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
     }
 
     float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+    float yoffset = lastY - ypos; 
 
     lastX = xpos;
     lastY = ypos;
@@ -259,8 +236,7 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
     camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
-// glfw: whenever the window size changed, this callback executes
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-    glViewport(0, 0, width, height);
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height){
+
 }

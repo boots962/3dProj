@@ -15,21 +15,25 @@ enum Camera_Movement {
 };
 
 // Default camera values
+
 const float YAW         = -90.0f;
 const float PITCH       = -20.0f; // Look slightly down by default
 const float SPEED       = 10.0f;  // Adjusted for a voxel environment
 const float SENSITIVITY = 0.1f;
 
+
 class Camera
 {
 public:
     // Camera Attributes
+
     glm::vec3 Position;
     glm::vec3 Front;
     glm::vec3 Up;
     glm::vec3 Right;
     glm::vec3 WorldUp;
     
+    float xCoords = 0.0f, yCoords = 0.0f, zCoords = 0.0f;;   
     
     // Euler Angles
     float Yaw;
@@ -72,6 +76,9 @@ public:
             Position += WorldUp *velocity;
         if(direction == DOWN)
             Position -= WorldUp *velocity;
+        xCoords = Position[0];
+        yCoords = Position[1];
+        zCoords = Position[2];
     }
 
     // Processes input received from a mouse input system

@@ -28,36 +28,30 @@ public:
         for(int x = 0; x < CHUNK_SIZE; x++){
             for(int z = 0; z < CHUNK_SIZE; z++){
                 
-                // 1. Calculate the block's absolute position in the world
                 float globalX = (chunkX * CHUNK_SIZE) + x;
                 float globalZ = (chunkZ * CHUNK_SIZE) + z;
 
-                // 2. Sample the noise (Scale determines how "zoomed in" the terrain is)
                 float scale = 0.05f;
-                // Noise returns -1.0 to 1.0, so we normalize it to 0.0 to 1.0
                 float noiseVal = (Perlin::noise(globalX * scale, globalZ * scale) + 1.0f) / 2.0f;
                 float steepNoise = std::pow(noiseVal, 1.5f);
-                // 3. Set the max height (e.g., mountains can be up to 12 blocks tall)
                 int terrainHeight = static_cast<int>(steepNoise * 40.0f);
 
 
-                // Ensure the base is at least 1 block thick, cap at CHUNK_SIZE - 1
                 if (terrainHeight < 1) terrainHeight = 1;
                 if (terrainHeight >= CHUNK_SIZE) terrainHeight = CHUNK_SIZE - 1;
 
-                // 4. Fill the column with blocks up to that height
                 for(int y = 0; y < CHUNK_SIZE; y++){
                     if(y == terrainHeight) {
-                        chunkData[x][y][z] = 1; // Grass/Dirt
+                        chunkData[x][y][z] = 1; 
                     }
                     else if(y<terrainHeight && y>terrainHeight-2){
-                        chunkData[x][y][z] = 4; //dirt
+                        chunkData[x][y][z] = 4; 
                     }
                     else if (y<terrainHeight-2){
                         chunkData[x][y][z] = 3;
                     }
                     else if (y <= WATER_LEVEL) {
-                        chunkData[x][y][z] = 2; // Water
+                        chunkData[x][y][z] = 2; 
                     } else {
                         chunkData[x][y][z] = 0; // Air
                     }
@@ -68,10 +62,8 @@ public:
             for(int z = 2; z < CHUNK_SIZE - 2; z++){
                 for(int y = 1; y < CHUNK_SIZE - 6; y++){
                     
-                    // If this block is Grass AND the block above it is Air
                     if (chunkData[x][y][z] == 1 && chunkData[x][y+1][z] == 0) {
                         
-                        // 2% chance to spawn a tree here
                         if (rand() % 200 < 1) {
                             SpawnTree(x, y + 1, z);
                         }
@@ -96,10 +88,8 @@ public:
             for (int x = rootX - 2; x <= rootX + 2; x++) {
                 for (int z = rootZ - 2; z <= rootZ + 2; z++) {
                     
-                    // CRITICAL: Prevent out-of-bounds array crashing!
                     if (x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE) {
                         
-                        // Don't overwrite the wood trunk we just placed
                         if (chunkData[x][y][z] != 5) {
                             chunkData[x][y][z] = 6; 
                         }
@@ -110,11 +100,8 @@ public:
 }
 
     void buildMesh() {
-        // Clear the mesh before building (useful if you ever rebuild the chunk later)
         meshVertices.clear();
 
-        // --- DEFINING ALL 6 FACES (Counter-Clockwise Winding Order) ---
-        // X,      Y,     Z,       R,    G,    B
         float topFace[] = {
             -0.5f, 0.5f,  0.5f,   0.3f, 0.8f, 0.4f,  // Green
              0.5f, 0.5f,  0.5f,   0.3f, 0.8f, 0.4f,  
@@ -378,21 +365,18 @@ public:
                     
                     int currentBlock = chunkData[x][y][z];
                     if(currentBlock == 0) continue; // skip air
-
-                    // C++ Lambda Function to calculate Culling Logic
                     auto checkNeighbor = [&](int nx, int ny, int nz) {
                         // If checking outside the chunk, draw the face so chunks don't have holes
                         if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) return true;
                         
                         int neighbor = chunkData[nx][ny][nz];
                         
-                        if (currentBlock == 1 || currentBlock == 3 ||currentBlock ==4 ||currentBlock==5)
+                        if (currentBlock == 1 || currentBlock == 3 ||currentBlock ==4 ||currentBlock==5 ||currentBlock==6)
                              return neighbor == 0 || neighbor ==2 ; // Grass renders against Air(0) and Water(2)
                         if (currentBlock == 2) return neighbor == 0; // Water renders ONLY against Air(0)
                         return false;
                     };
 
-                    // 1. Define a quick struct to hold the 6 face pointers
                     struct BlockDefinition {
                         float* top; float* bottom; float* right;
                         float* left; float* front; float* back;
@@ -411,13 +395,10 @@ public:
 
                     // 3. Instantly grab the correct faces using the block ID! No if-statements needed.
                     BlockDefinition currentFaces = blockRegistry[currentBlock];
-// Leaves (ID 6) are 80% opaque, Water (ID 2) is 60% opaque. Everything else is 100%.
-                    float alpha = 1.0f;
-                    if (currentBlock == 6) alpha = 0.80f;
-                    if (currentBlock == 2) alpha = 0.60f;
+                    float alpha = 1.00f;
+                    if(currentBlock == 2) alpha = 0.50f;
+                    else if(currentBlock == 6) alpha = 0.70f;
 
-
-                    // Pass the alpha variable to the new function!
                     if (checkNeighbor(x, y + 1, z)) addFace(currentFaces.top, x, y, z, alpha);
                     if (checkNeighbor(x, y - 1, z)) addFace(currentFaces.bottom, x, y, z, alpha);
                     if (checkNeighbor(x + 1, y, z)) addFace(currentFaces.right, x, y, z, alpha);
@@ -441,7 +422,6 @@ public:
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
         
-        // 2. Color attribute (Location 1) - Now takes 4 floats (RGBA)!
         glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
 
@@ -466,7 +446,7 @@ private:
             meshVertices.push_back(faceVertices[i + 3]);     // R
             meshVertices.push_back(faceVertices[i + 4]);     // G
             meshVertices.push_back(faceVertices[i + 5]);     // B
-            meshVertices.push_back(alpha); //A
+            meshVertices.push_back(alpha);     // B
         }
     }
 };
