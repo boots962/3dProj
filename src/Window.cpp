@@ -16,6 +16,7 @@
 #include "Mesh.h"
 #include "Perlin.h"
 #include "Actions.h"
+#include "UI.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
@@ -115,6 +116,9 @@ int main()
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    UI ui;
+    ui.set2D();
     // render loop
     while (!glfwWindowShouldClose(window)) 
     {
@@ -170,6 +174,20 @@ int main()
             int vertexCount = chunk->meshVertices.size() / 3;
             glDrawArrays(GL_TRIANGLES, 0, vertexCount);
         }
+        glDisable(GL_DEPTH_TEST); 
+        
+        // 2. Use the simple UI shader
+        glUseProgram(ui.uiShaderProgram); 
+        
+        // 3. Draw the 4 vertices as GL_LINES instead of GL_TRIANGLES
+        glBindVertexArray(ui.crosshairVAO);
+        glDrawArrays(GL_LINES, 0, 4); 
+        
+        // 4. Turn depth testing back on for the next 3D frame!
+        glEnable(GL_DEPTH_TEST);
+
+        // Swap buffers and poll IO events
+        
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -197,15 +215,34 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(UP, deltaTime);
     if(glfwGetKey(window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS)
         camera.ProcessKeyboard(DOWN, deltaTime);
-    if(glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS){
-        
-        Actions actions;
-        RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
-        if(ray.hit){
-            actions.breakBlock(ray, activeChunks);
+    static double lastBreakTime = 0.0;
+    static double lastPlaceTime = 0.0;
+    double currentTime = glfwGetTime();
+
+    // Breaking Blocks (Left Click)
+    if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
+        // Only allow a break every 0.2 seconds
+        if (currentTime - lastBreakTime > 0.2) { 
+            Actions actions;
+            RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
+            if(ray.hit){
+                actions.breakBlock(ray, activeChunks);
+            }
+            lastBreakTime = currentTime; // Reset the timer
         }
-        
-        
+    }
+
+    // Placing Blocks (G Key)
+    if(glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS){
+        // Only allow a place every 0.2 seconds
+        if (currentTime - lastPlaceTime > 0.2) {
+            Actions action;
+            RaycastResult ray = action.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
+            if(ray.hit){
+                action.placeBlock(ray, activeChunks);
+            }
+            lastPlaceTime = currentTime; // Reset the timer
+        }
     }
 }
 

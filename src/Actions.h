@@ -8,6 +8,7 @@
 struct RaycastResult {
     bool hit =false;
     int lx, ly, lz;
+    int px, py, pz;
     glm::ivec3 normal; 
     ChunkMesh* chunk = nullptr; 
 };
@@ -21,7 +22,10 @@ class Actions{
 
     RaycastResult getLookingAt(glm::vec3 camPos, glm::vec3 camFront, float reach, std::map<std::pair<int, int>, ChunkMesh*>& activeChunks){
         RaycastResult result;
-        for(float step = 0.00f; step<reach; step+=0.05f){
+        int prev_wx = glm::floor(camPos.x);
+        int prev_wy = glm::floor(camPos.y);
+        int prev_wz = glm::floor(camPos.z);
+        for(float step = 0.00f; step<reach; step+=0.0005f){
             glm::vec3 currentPos = camPos + (camFront*step);
 
             int wx = glm::floor(currentPos.x);
@@ -49,11 +53,20 @@ class Actions{
                     result.lx = lx;
                     result.ly = ly;
                     result.lz = lz;
+
+                    result.px = prev_wx;
+                    result.py = prev_wy;
+                    result.pz = prev_wz;
                     return result;
+
                 }
 
             }
+          
         }
+          prev_wx = wx;
+            prev_wy = wy;
+            prev_wz = wz;
         }
         
         return result;
@@ -67,5 +80,15 @@ class Actions{
         ray.chunk->buildMesh();
         ray.chunk->memory();;
     }
+
+    void placeBlock(RaycastResult ray,std::map<std::pair<int, int>, ChunkMesh*>& activeChunks ){
+        if(!ray.hit||ray.chunk == nullptr){
+            return;
+        }
+        ray.chunk->chunkData[ray.px][ray.py][ray.pz] = 1;
+        ray.chunk->buildMesh();
+        ray.chunk->memory();;
+    }
+
 
 };
