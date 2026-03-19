@@ -26,7 +26,7 @@ class Camera
 {
 public:
     // Camera Attributes
-
+    glm::vec3 looking_at;
     glm::vec3 Position;
     glm::vec3 Front;
     glm::vec3 Up;
@@ -112,7 +112,7 @@ private:
         front.y = sin(glm::radians(Pitch));
         front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
         Front = glm::normalize(front);
-        
+        looking_at = {front.x, front.y, front.z};
         // Also re-calculate the Right and Up vector
         Right = glm::normalize(glm::cross(Front, WorldUp)); 
         Up    = glm::normalize(glm::cross(Right, Front));

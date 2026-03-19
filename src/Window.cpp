@@ -12,9 +12,10 @@
 
 #include <iostream>
 
-#include "Camera.h" // Include your new Camera class
+#include "Camera.h" 
 #include "Mesh.h"
 #include "Perlin.h"
+#include "Actions.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
@@ -25,24 +26,21 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 const unsigned int SCR_WIDTH = 1800;
 const unsigned int SCR_HEIGHT = 1000;
 
-// Camera object (Positioned up and back so you can see the 16x16 chunk)
 Camera camera(glm::vec3(8.0f, 5.0f, 20.0f));
 
-// Mouse state
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
 std::map<std::pair<int, int>, ChunkMesh*> activeChunks;
 int renderDistance = 3;
-// Timing state
-float deltaTime = 0.0f;	// Time between current frame and last frame
+float deltaTime = 0.0f;	
 float lastFrame = 0.0f;
 
 
 const char *vertexShaderSource = "#version 330 core\n"
     "layout (location = 0) in vec3 aPos;\n"
-    "layout (location = 1) in vec4 aColor;\n" // NEW: vec4 instead of vec3
+    "layout (location = 1) in vec4 aColor;\n" 
     "out vec4 vertexColor;\n"
     "uniform mat4 model;\n"      
     "uniform mat4 view;\n"
@@ -58,19 +56,17 @@ const char *fragmentShaderSource = "#version 330 core\n"
     "in vec4 vertexColor;\n"
     "void main()\n"
     "{\n"
-    "   FragColor = vertexColor;\n" // Simply output the RGBA value directly
+    "   FragColor = vertexColor;\n" 
     "}\n\0";
 
 int main()
 {
-    // glfw: initialize and configure
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 
-    // glfw window creation
     Camera cam;
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Voxel Engine", NULL, NULL);
     if (window == NULL)
@@ -84,7 +80,6 @@ int main()
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    // glad: load all OpenGL function pointers
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
@@ -96,7 +91,6 @@ int main()
     chunk.buildMesh();
 
 
-    // Compile Shaders
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
     glCompileShader(vertexShader);
@@ -113,12 +107,7 @@ int main()
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    // Global OpenGL settings
     glEnable(GL_DEPTH_TEST);
-    // glEnable(GL_CULL_FACE);
-    // glCullFace(GL_BACK);
-
-    // Get Uniform Locations once before the loop
     int modelLoc = glGetUniformLocation(shaderProgram, "model");
     int viewLoc = glGetUniformLocation(shaderProgram, "view");
     int projLoc = glGetUniformLocation(shaderProgram, "projection");
@@ -127,7 +116,7 @@ int main()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // render loop
-    while (!glfwWindowShouldClose(window)) //MAIN RENDER LOOP
+    while (!glfwWindowShouldClose(window)) 
     {
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
@@ -151,7 +140,6 @@ int main()
         std::string title = "x: "+ (std::to_string(camera.Position.x)) + "  y: " + std::to_string(camera.Position.x);
         glfwSetWindowTitle(window, title.c_str());
          
-        // --- 2. UPDATE RENDER DISTANCE (Spawn missing chunks) ---
         for (int x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
             for (int z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
                 
@@ -169,13 +157,10 @@ int main()
             }
         }
 
-        // --- 3. DRAW ALL ACTIVE CHUNKS ---
         for (auto const& [coord, chunk] : activeChunks) {
             
             glBindVertexArray(chunk->VAO);
             
-            // The magic: We use the model matrix to slide the baked 16x16 chunk 
-            // into its proper world position based on its chunk coordinates!
             glm::mat4 chunkModel = glm::mat4(1.0f); 
             chunkModel = glm::translate(chunkModel, glm::vec3(chunk->chunkX * CHUNK_SIZE, 0.0f, chunk->chunkZ * CHUNK_SIZE));
             
@@ -212,6 +197,16 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(UP, deltaTime);
     if(glfwGetKey(window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS)
         camera.ProcessKeyboard(DOWN, deltaTime);
+    if(glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS){
+        
+        Actions actions;
+        RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
+        if(ray.hit){
+            actions.breakBlock(ray, activeChunks);
+        }
+        
+        
+    }
 }
 
 

@@ -154,8 +154,6 @@ public:
              0.5f,  0.5f,  0.5f,  0.3f, 0.8f, 0.4f,  // Top Left (Green)
              0.5f, -0.5f,  0.5f,  0.4f, 0.2f, 0.1f   // Bottom Left (Brown)
         };
-        // --- 2. WATER ARRAYS (Shifted down by 0.05 on the Y-axis) ---
-        // Light blue on top, dark blue on the bottom for a nice aquatic gradient
         float wTopFace[] = {
             -0.5f, 0.45f,  0.5f,   0.2f, 0.4f, 0.9f,  0.5f, 0.45f,  0.5f,   0.2f, 0.4f, 0.9f,  
              0.5f, 0.45f, -0.5f,   0.2f, 0.4f, 0.9f,  0.5f, 0.45f, -0.5f,   0.2f, 0.4f, 0.9f,  
@@ -295,7 +293,6 @@ public:
              0.5f, -0.5f,  0.5f,  0.4f, 0.2f, 0.1f   
         };
 
-        // --- 4. WOOD ARRAYS (Dark Brown) ---
         float wdTopFace[] = {
             -0.5f, 0.5f,  0.5f,   0.35f, 0.2f, 0.1f,  0.5f, 0.5f,  0.5f,   0.35f, 0.2f, 0.1f,  
              0.5f, 0.5f, -0.5f,   0.35f, 0.2f, 0.1f,  0.5f, 0.5f, -0.5f,   0.35f, 0.2f, 0.1f,  
@@ -327,7 +324,6 @@ public:
              0.5f,  0.5f,  0.5f,  0.35f, 0.2f, 0.1f,  0.5f, -0.5f,  0.5f,  0.35f, 0.2f, 0.1f   
         };
 
-        // --- 5. LEAVES ARRAYS (Forest Green) ---
       float lfTopFace[] = {
             -0.5f, 0.5f,  0.5f,   0.1f, 0.35f, 0.1f,  0.5f, 0.5f,  0.5f,   0.1f, 0.35f, 0.1f,  
              0.5f, 0.5f, -0.5f,   0.1f, 0.35f, 0.1f,  0.5f, 0.5f, -0.5f,   0.1f, 0.35f, 0.1f,  
@@ -358,7 +354,7 @@ public:
              0.5f,  0.5f, -0.5f,  0.1f, 0.35f, 0.1f,  0.5f,  0.5f, -0.5f,  0.1f, 0.35f, 0.1f,  
              0.5f,  0.5f,  0.5f,  0.1f, 0.35f, 0.1f,  0.5f, -0.5f,  0.5f,  0.1f, 0.35f, 0.1f   
         };
-        // --- THE MESHING LOOP ---
+        //meshing
         for(int x = 0; x < CHUNK_SIZE; x++){
             for(int y = 0; y < CHUNK_SIZE; y++){
                 for(int z = 0; z < CHUNK_SIZE; z++){
@@ -366,7 +362,6 @@ public:
                     int currentBlock = chunkData[x][y][z];
                     if(currentBlock == 0) continue; // skip air
                     auto checkNeighbor = [&](int nx, int ny, int nz) {
-                        // If checking outside the chunk, draw the face so chunks don't have holes
                         if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) return true;
                         
                         int neighbor = chunkData[nx][ny][nz];
@@ -382,7 +377,6 @@ public:
                         float* left; float* front; float* back;
                     };
 
-                    // 2. Create a "Registry" array. The index exactly matches your Block ID!
                     BlockDefinition blockRegistry[] = {
                         {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},                // ID 0: Air (Keeps indexes aligned)
                         {topFace, bottomFace, rightFace, leftFace, frontFace, backFace},       // ID 1: Grass
@@ -393,7 +387,6 @@ public:
                          {lfTopFace, lfBottomFace, lfRightFace, lfLeftFace, lfFrontFace, lfBackFace}  // ID 3: Stone
                     };
 
-                    // 3. Instantly grab the correct faces using the block ID! No if-statements needed.
                     BlockDefinition currentFaces = blockRegistry[currentBlock];
                     float alpha = 1.00f;
                     if(currentBlock == 2) alpha = 0.50f;
@@ -436,9 +429,7 @@ public:
         }
     }
 private:
-    // Helper function to keep the logic clean
     void addFace(float* faceVertices, int x, int y, int z, float alpha) {
-        // 36 floats per face now (6 vertices * 6 coordinates)
         for (int i = 0; i < 36; i += 6) {
             meshVertices.push_back(faceVertices[i]     + x); // X
             meshVertices.push_back(faceVertices[i + 1] + y); // Y
