@@ -217,13 +217,23 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(DOWN, deltaTime);
     static double lastBreakTime = 0.0;
     static double lastPlaceTime = 0.0;
+    Actions actions;
     double currentTime = glfwGetTime();
-
+     if(glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+         actions.block_type = 1;
+    if(glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
+         actions.block_type = 3;
+    if(glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
+         actions.block_type = 4;
+    if(glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS)
+         actions.block_type = 5;
+    if(glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS)
+        actions.block_type = 6;
     // Breaking Blocks (Left Click)
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
         // Only allow a break every 0.2 seconds
         if (currentTime - lastBreakTime > 0.2) { 
-            Actions actions;
+            
             RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
             if(ray.hit){
                 actions.breakBlock(ray, activeChunks);

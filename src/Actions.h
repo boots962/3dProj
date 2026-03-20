@@ -19,13 +19,14 @@ enum mouseClicks{
 
 class Actions{
     public:
+    int block_type = 1;
 
     RaycastResult getLookingAt(glm::vec3 camPos, glm::vec3 camFront, float reach, std::map<std::pair<int, int>, ChunkMesh*>& activeChunks){
         RaycastResult result;
         int prev_wx = glm::floor(camPos.x);
         int prev_wy = glm::floor(camPos.y);
         int prev_wz = glm::floor(camPos.z);
-        for(float step = 0.00f; step<reach; step+=0.0005f){
+        for(float step = 0.00f; step<reach; step+=0.005f){
             glm::vec3 currentPos = camPos + (camFront*step);
 
             int wx = glm::floor(currentPos.x);
@@ -63,10 +64,11 @@ class Actions{
 
             }
           
-        }
-          prev_wx = wx;
+            prev_wx = wx;
             prev_wy = wy;
             prev_wz = wz;
+        }
+           
         }
         
         return result;
@@ -85,7 +87,7 @@ class Actions{
         if(!ray.hit||ray.chunk == nullptr){
             return;
         }
-        ray.chunk->chunkData[ray.px][ray.py][ray.pz] = 1;
+        ray.chunk->chunkData[ray.px][ray.py][ray.pz] = block_type;;
         ray.chunk->buildMesh();
         ray.chunk->memory();;
     }
