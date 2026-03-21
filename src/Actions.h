@@ -83,13 +83,35 @@ class Actions{
         ray.chunk->memory();;
     }
 
-    void placeBlock(RaycastResult ray,std::map<std::pair<int, int>, ChunkMesh*>& activeChunks ){
-        if(!ray.hit||ray.chunk == nullptr){
+    void placeBlock(RaycastResult ray, std::map<std::pair<int, int>, ChunkMesh*>& activeChunks ){
+        if(!ray.hit || ray.chunk == nullptr){
             return;
         }
-        ray.chunk->chunkData[ray.px][ray.py][ray.pz] = block_type;;
-        ray.chunk->buildMesh();
-        ray.chunk->memory();;
+
+        // 1. Figure out EXACTLY which chunk the new "empty space" coordinate belongs to
+        int cx = glm::floor((float)ray.px / CHUNK_SIZE);
+        int cz = glm::floor((float)ray.pz / CHUNK_SIZE);
+
+        // 2. Make sure that chunk is loaded in memory
+        if(activeChunks.count({cx, cz})){
+            ChunkMesh* targetChunk = activeChunks[{cx, cz}];
+
+            // 3. Convert Global px,py,pz into Local 0-63 coordinates
+            int localX = ray.px % CHUNK_SIZE; 
+            if(localX < 0) localX += CHUNK_SIZE;
+            
+            int localZ = ray.pz % CHUNK_SIZE; 
+            if(localZ < 0) localZ += CHUNK_SIZE;
+            
+            int localY = ray.py;
+
+            // 4. Place the block safely within array bounds!
+            if(localY >= 0 && localY < CHUNK_SIZE){
+                targetChunk->chunkData[localX][localY][localZ] = block_type;
+                targetChunk->buildMesh();
+                targetChunk->memory();
+            }
+        }
     }
 
 

@@ -4,7 +4,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
 
 #include <map>
 #include <utility>
@@ -27,7 +28,7 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 const unsigned int SCR_WIDTH = 1800;
 const unsigned int SCR_HEIGHT = 1000;
 
-Camera camera(glm::vec3(8.0f, 5.0f, 20.0f));
+Camera camera(glm::vec3(8.0f, 50.0f, 20.0f));
 
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
@@ -38,26 +39,30 @@ int renderDistance = 3;
 float deltaTime = 0.0f;	
 float lastFrame = 0.0f;
 
+    Actions actions;
 
 const char *vertexShaderSource = "#version 330 core\n"
     "layout (location = 0) in vec3 aPos;\n"
-    "layout (location = 1) in vec4 aColor;\n" 
-    "out vec4 vertexColor;\n"
+    "layout (location = 1) in vec2 aTexCoord;\n" // NEW: vec2 instead of vec4
+    "out vec2 TexCoord;\n"
     "uniform mat4 model;\n"      
     "uniform mat4 view;\n"
     "uniform mat4 projection;\n"
     "void main()\n"
     "{\n"
     "   gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
-    "   vertexColor = aColor;\n"
+    "   TexCoord = aTexCoord;\n"
     "}\0";
 
 const char *fragmentShaderSource = "#version 330 core\n"
     "out vec4 FragColor;\n"
-    "in vec4 vertexColor;\n"
+    "in vec2 TexCoord;\n"
+    "uniform sampler2D textureAtlas;\n" // NEW: The actual image!
     "void main()\n"
     "{\n"
-    "   FragColor = vertexColor;\n" 
+    "   vec4 texColor = texture(textureAtlas, TexCoord);\n"
+    "   if(texColor.a < 0.1) discard;\n" // Keeps your leaf transparency working!
+    "   FragColor = texColor;\n"
     "}\n\0";
 
 int main()
@@ -116,9 +121,25 @@ int main()
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    unsigned int textureAtlas;
+    glGenTextures(1, &textureAtlas);
+    glBindTexture(GL_TEXTURE_2D, textureAtlas);
     
+    // Set to GL_NEAREST to get that crisp, pixelated voxel look!
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    int width, height, nrChannels;
+    stbi_set_flip_vertically_on_load(true); // OpenGL expects 0.0 on the Y axis to be at the bottom
+    unsigned char *data = stbi_load("image.jpg", &width, &height, &nrChannels, 4);
+    if (data) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    stbi_image_free(data);
     UI ui;
     ui.set2D();
+    
     // render loop
     while (!glfwWindowShouldClose(window)) 
     {
@@ -217,7 +238,6 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(DOWN, deltaTime);
     static double lastBreakTime = 0.0;
     static double lastPlaceTime = 0.0;
-    Actions actions;
     double currentTime = glfwGetTime();
      if(glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
          actions.block_type = 1;
@@ -246,10 +266,9 @@ void processInput(GLFWwindow *window)
     if(glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS){
         // Only allow a place every 0.2 seconds
         if (currentTime - lastPlaceTime > 0.2) {
-            Actions action;
-            RaycastResult ray = action.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
+            RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
             if(ray.hit){
-                action.placeBlock(ray, activeChunks);
+                actions.placeBlock(ray, activeChunks);
             }
             lastPlaceTime = currentTime; // Reset the timer
         }

@@ -7,10 +7,10 @@
 const int CHUNK_SIZE = 64;
 
 
+inline Perlin worldGenerator(12345);
 
 class ChunkMesh {
 public: 
-    
     int chunkX, chunkZ;
     unsigned int VAO, VBO;
      uint8_t chunkData[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
@@ -32,7 +32,7 @@ public:
                 float globalZ = (chunkZ * CHUNK_SIZE) + z;
 
                 float scale = 0.05f;
-                float noiseVal = (Perlin::noise(globalX * scale, globalZ * scale) + 1.0f) / 2.0f;
+                float noiseVal = (worldGenerator.noise(globalX * scale, globalZ * scale) + 1.0f) / 2.0f;
                 float steepNoise = std::pow(noiseVal, 1.5f);
                 int terrainHeight = static_cast<int>(steepNoise * 40.0f);
 
@@ -44,7 +44,7 @@ public:
                     if(y == terrainHeight) {
                         chunkData[x][y][z] = 1; 
                     }
-                    else if(y<terrainHeight && y>terrainHeight-2){
+                    else if(y<terrainHeight && y>=terrainHeight-2){
                         chunkData[x][y][z] = 4; 
                     }
                     else if (y<terrainHeight-2){
@@ -102,265 +102,103 @@ public:
     void buildMesh() {
         meshVertices.clear();
 
-        // --- 1. GRASS ARRAYS ---
+        // --- GENERIC CUBE FACES (X, Y, Z, U, V) ---
         float topFace[] = {
-            0.0f, 1.0f, 1.0f,   0.3f, 0.8f, 0.4f,  // Green
-            1.0f, 1.0f, 1.0f,   0.3f, 0.8f, 0.4f,  
-            1.0f, 1.0f, 0.0f,   0.3f, 0.8f, 0.4f,  
-            1.0f, 1.0f, 0.0f,   0.3f, 0.8f, 0.4f,  
-            0.0f, 1.0f, 0.0f,   0.3f, 0.8f, 0.4f,  
-            0.0f, 1.0f, 1.0f,   0.3f, 0.8f, 0.4f   
+            0.0f, 1.0f, 1.0f,   0.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,   1.0f, 1.0f,
+            1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
+            0.0f, 1.0f, 1.0f,   0.0f, 1.0f
         };
-
         float bottomFace[] = {
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  // Brown
-            1.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f   
+            0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+            1.0f, 0.0f, 1.0f,   1.0f, 1.0f,
+            1.0f, 0.0f, 1.0f,   1.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,   0.0f, 1.0f,
+            0.0f, 0.0f, 0.0f,   0.0f, 0.0f
         };
-
         float frontFace[] = {
-            0.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  // Bottom Left (Brown)
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  // Bottom Right (Brown)
-            1.0f, 1.0f, 1.0f,   0.3f, 0.8f, 0.4f,  // Top Right (Green)
-            1.0f, 1.0f, 1.0f,   0.3f, 0.8f, 0.4f,  // Top Right (Green)
-            0.0f, 1.0f, 1.0f,   0.3f, 0.8f, 0.4f,  // Top Left (Green)
-            0.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f   // Bottom Left (Brown)
+            0.0f, 0.0f, 1.0f,   0.0f, 0.0f,
+            1.0f, 0.0f, 1.0f,   1.0f, 0.0f,
+            1.0f, 1.0f, 1.0f,   1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,   1.0f, 1.0f,
+            0.0f, 1.0f, 1.0f,   0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,   0.0f, 0.0f
         };
-
         float backFace[] = {
-            1.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  // Bottom Left (Brown)
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  // Bottom Right (Brown)
-            0.0f, 1.0f, 0.0f,   0.3f, 0.8f, 0.4f,  // Top Right (Green)
-            0.0f, 1.0f, 0.0f,   0.3f, 0.8f, 0.4f,  // Top Right (Green)
-            1.0f, 1.0f, 0.0f,   0.3f, 0.8f, 0.4f,  // Top Left (Green)
-            1.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f   // Bottom Left (Brown)
+            1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
+            0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
+            1.0f, 1.0f, 0.0f,   0.0f, 1.0f,
+            1.0f, 0.0f, 0.0f,   0.0f, 0.0f
         };
-        
         float leftFace[] = {
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  // Bottom Left (Brown)
-            0.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  // Bottom Right (Brown)
-            0.0f, 1.0f, 1.0f,   0.3f, 0.8f, 0.4f,  // Top Right (Green)
-            0.0f, 1.0f, 1.0f,   0.3f, 0.8f, 0.4f,  // Top Right (Green)
-            0.0f, 1.0f, 0.0f,   0.3f, 0.8f, 0.4f,  // Top Left (Green)
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f   // Bottom Left (Brown)
+            0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f,   1.0f, 0.0f,
+            0.0f, 1.0f, 1.0f,   1.0f, 1.0f,
+            0.0f, 1.0f, 1.0f,   1.0f, 1.0f,
+            0.0f, 1.0f, 0.0f,   0.0f, 1.0f,
+            0.0f, 0.0f, 0.0f,   0.0f, 0.0f
         };
-        
         float rightFace[] = {
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  // Bottom Left (Brown)
-            1.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  // Bottom Right (Brown)
-            1.0f, 1.0f, 0.0f,   0.3f, 0.8f, 0.4f,  // Top Right (Green)
-            1.0f, 1.0f, 0.0f,   0.3f, 0.8f, 0.4f,  // Top Right (Green)
-            1.0f, 1.0f, 1.0f,   0.3f, 0.8f, 0.4f,  // Top Left (Green)
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f   // Bottom Left (Brown)
+            1.0f, 0.0f, 1.0f,   0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,   1.0f, 1.0f,
+            1.0f, 1.0f, 0.0f,   1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,   0.0f, 1.0f,
+            1.0f, 0.0f, 1.0f,   0.0f, 0.0f
         };
-
-        // --- 2. WATER ARRAYS ---
+        // --- WATER CUBE FACES (Y is dipped to 0.85f) ---
         float wTopFace[] = {
-            0.0f, 0.95f, 1.0f,   0.2f, 0.4f, 0.9f,  1.0f, 0.95f, 1.0f,   0.2f, 0.4f, 0.9f,  
-            1.0f, 0.95f, 0.0f,   0.2f, 0.4f, 0.9f,  1.0f, 0.95f, 0.0f,   0.2f, 0.4f, 0.9f,  
-            0.0f, 0.95f, 0.0f,   0.2f, 0.4f, 0.9f,  0.0f, 0.95f, 1.0f,   0.2f, 0.4f, 0.9f   
+            0.0f, 0.85f, 1.0f,   0.0f, 1.0f,
+            1.0f, 0.85f, 1.0f,   1.0f, 1.0f,
+            1.0f, 0.85f, 0.0f,   1.0f, 0.0f,
+            1.0f, 0.85f, 0.0f,   1.0f, 0.0f,
+            0.0f, 0.85f, 0.0f,   0.0f, 0.0f,
+            0.0f, 0.85f, 1.0f,   0.0f, 1.0f
         };
         float wBottomFace[] = {
-            0.0f, -0.05f, 0.0f,  0.1f, 0.2f, 0.6f,  1.0f, -0.05f, 0.0f,  0.1f, 0.2f, 0.6f,  
-            1.0f, -0.05f, 1.0f,  0.1f, 0.2f, 0.6f,  1.0f, -0.05f, 1.0f,  0.1f, 0.2f, 0.6f,  
-            0.0f, -0.05f, 1.0f,  0.1f, 0.2f, 0.6f,  0.0f, -0.05f, 0.0f,  0.1f, 0.2f, 0.6f   
+            0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+            1.0f, 0.0f, 1.0f,   1.0f, 1.0f,
+            1.0f, 0.0f, 1.0f,   1.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,   0.0f, 1.0f,
+            0.0f, 0.0f, 0.0f,   0.0f, 0.0f
         };
         float wFrontFace[] = {
-            0.0f, -0.05f, 1.0f,  0.1f, 0.2f, 0.6f,  1.0f, -0.05f, 1.0f,  0.1f, 0.2f, 0.6f,  
-            1.0f,  0.95f, 1.0f,  0.2f, 0.4f, 0.9f,  1.0f,  0.95f, 1.0f,  0.2f, 0.4f, 0.9f,  
-            0.0f,  0.95f, 1.0f,  0.2f, 0.4f, 0.9f,  0.0f, -0.05f, 1.0f,  0.1f, 0.2f, 0.6f   
+            0.0f, 0.0f, 1.0f,   0.0f, 0.0f,
+            1.0f, 0.0f, 1.0f,   1.0f, 0.0f,
+            1.0f, 0.85f, 1.0f,   1.0f, 1.0f,
+            1.0f, 0.85f, 1.0f,   1.0f, 1.0f,
+            0.0f, 0.85f, 1.0f,   0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,   0.0f, 0.0f
         };
         float wBackFace[] = {
-            1.0f, -0.05f, 0.0f,  0.1f, 0.2f, 0.6f,  0.0f, -0.05f, 0.0f,  0.1f, 0.2f, 0.6f,  
-            0.0f,  0.95f, 0.0f,  0.2f, 0.4f, 0.9f,  0.0f,  0.95f, 0.0f,  0.2f, 0.4f, 0.9f,  
-            1.0f,  0.95f, 0.0f,  0.2f, 0.4f, 0.9f,  1.0f, -0.05f, 0.0f,  0.1f, 0.2f, 0.6f   
+            1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+            0.0f, 0.85f, 0.0f,   1.0f, 1.0f,
+            0.0f, 0.85f, 0.0f,   1.0f, 1.0f,
+            1.0f, 0.85f, 0.0f,   0.0f, 1.0f,
+            1.0f, 0.0f, 0.0f,   0.0f, 0.0f
         };
         float wLeftFace[] = {
-            0.0f, -0.05f, 0.0f,  0.1f, 0.2f, 0.6f,  0.0f, -0.05f, 1.0f,  0.1f, 0.2f, 0.6f,  
-            0.0f,  0.95f, 1.0f,  0.2f, 0.4f, 0.9f,  0.0f,  0.95f, 1.0f,  0.2f, 0.4f, 0.9f,  
-            0.0f,  0.95f, 0.0f,  0.2f, 0.4f, 0.9f,  0.0f, -0.05f, 0.0f,  0.1f, 0.2f, 0.6f   
+            0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f,   1.0f, 0.0f,
+            0.0f, 0.85f, 1.0f,   1.0f, 1.0f,
+            0.0f, 0.85f, 1.0f,   1.0f, 1.0f,
+            0.0f, 0.85f, 0.0f,   0.0f, 1.0f,
+            0.0f, 0.0f, 0.0f,   0.0f, 0.0f
         };
         float wRightFace[] = {
-            1.0f, -0.05f, 1.0f,  0.1f, 0.2f, 0.6f,  1.0f, -0.05f, 0.0f,  0.1f, 0.2f, 0.6f,  
-            1.0f,  0.95f, 0.0f,  0.2f, 0.4f, 0.9f,  1.0f,  0.95f, 0.0f,  0.2f, 0.4f, 0.9f,  
-            1.0f,  0.95f, 1.0f,  0.2f, 0.4f, 0.9f,  1.0f, -0.05f, 1.0f,  0.1f, 0.2f, 0.6f   
-        }; 
-
-        // --- 3. STONE ARRAYS ---
-        float StopFace[] = {
-            0.0f, 1.0f, 1.0f,   0.5f, 0.5f, 0.5f,  // Gray
-            1.0f, 1.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 1.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 1.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 1.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 1.0f, 1.0f,   0.5f, 0.5f, 0.5f   
-        };
-
-        float SbottomFace[] = {
-            0.0f, 0.0f, 0.0f,   0.5f, 0.5f, 0.5f,  // Gray
-            1.0f, 0.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 0.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 0.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 0.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 0.0f, 0.0f,   0.5f, 0.5f, 0.5f   
-        };
-
-        float SfrontFace[] = {
-            0.0f, 0.0f, 1.0f,   0.5f, 0.5f, 0.5f,  // Gray
-            1.0f, 0.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 1.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 1.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 1.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 0.0f, 1.0f,   0.5f, 0.5f, 0.5f   
-        };
-
-        float SbackFace[] = {
-            1.0f, 0.0f, 0.0f,   0.5f, 0.5f, 0.5f,  // Gray
-            0.0f, 0.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 1.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 1.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 1.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 0.0f, 0.0f,   0.5f, 0.5f, 0.5f   
-        };
-        
-        float SleftFace[] = {
-            0.0f, 0.0f, 0.0f,   0.5f, 0.5f, 0.5f,  // Gray
-            0.0f, 0.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 1.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 1.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 1.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            0.0f, 0.0f, 0.0f,   0.5f, 0.5f, 0.5f   
-        };
-        
-        float SrightFace[] = {
-            1.0f, 0.0f, 1.0f,   0.5f, 0.5f, 0.5f,  // Gray
-            1.0f, 0.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 1.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 1.0f, 0.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 1.0f, 1.0f,   0.5f, 0.5f, 0.5f,  
-            1.0f, 0.0f, 1.0f,   0.5f, 0.5f, 0.5f   
-        };
-
-        // --- 4. DIRT ARRAYS ---
-        float Dirt_topFace[] = {
-            0.0f, 1.0f, 1.0f,   0.4f, 0.2f, 0.1f,  // Brown
-            1.0f, 1.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 1.0f,   0.4f, 0.2f, 0.1f   
-        };
-
-        float Dirt_bottomFace[] = {
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  // Brown
-            1.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f   
-        };
-
-        float Dirt_frontFace[] = {
-            0.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  // Brown
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f   
-        };
-
-        float Dirt_backFace[] = {
-            1.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  // Brown
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f   
-        };
-        
-        float Dirt_leftFace[] = {
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  // Brown
-            0.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            0.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f   
-        };
-        
-        float Dirt_rightFace[] = {
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f,  // Brown
-            1.0f, 0.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 1.0f,   0.4f, 0.2f, 0.1f,  
-            1.0f, 0.0f, 1.0f,   0.4f, 0.2f, 0.1f   
-        };
-
-        // --- 5. WOOD ARRAYS (Dark Brown) ---
-        float wdTopFace[] = {
-            0.0f, 1.0f, 1.0f,   0.35f, 0.2f, 0.1f,  1.0f, 1.0f, 1.0f,   0.35f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.35f, 0.2f, 0.1f,  1.0f, 1.0f, 0.0f,   0.35f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.35f, 0.2f, 0.1f,  0.0f, 1.0f, 1.0f,   0.35f, 0.2f, 0.1f   
-        };
-        float wdBottomFace[] = {
-            0.0f, 0.0f, 0.0f,   0.35f, 0.2f, 0.1f,  1.0f, 0.0f, 0.0f,   0.35f, 0.2f, 0.1f,  
-            1.0f, 0.0f, 1.0f,   0.35f, 0.2f, 0.1f,  1.0f, 0.0f, 1.0f,   0.35f, 0.2f, 0.1f,  
-            0.0f, 0.0f, 1.0f,   0.35f, 0.2f, 0.1f,  0.0f, 0.0f, 0.0f,   0.35f, 0.2f, 0.1f   
-        };
-        float wdFrontFace[] = {
-            0.0f, 0.0f, 1.0f,   0.35f, 0.2f, 0.1f,  1.0f, 0.0f, 1.0f,   0.35f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 1.0f,   0.35f, 0.2f, 0.1f,  1.0f, 1.0f, 1.0f,   0.35f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 1.0f,   0.35f, 0.2f, 0.1f,  0.0f, 0.0f, 1.0f,   0.35f, 0.2f, 0.1f   
-        };
-        float wdBackFace[] = {
-            1.0f, 0.0f, 0.0f,   0.35f, 0.2f, 0.1f,  0.0f, 0.0f, 0.0f,   0.35f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.35f, 0.2f, 0.1f,  0.0f, 1.0f, 0.0f,   0.35f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.35f, 0.2f, 0.1f,  1.0f, 0.0f, 0.0f,   0.35f, 0.2f, 0.1f   
-        };
-        float wdLeftFace[] = {
-            0.0f, 0.0f, 0.0f,   0.35f, 0.2f, 0.1f,  0.0f, 0.0f, 1.0f,   0.35f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 1.0f,   0.35f, 0.2f, 0.1f,  0.0f, 1.0f, 1.0f,   0.35f, 0.2f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.35f, 0.2f, 0.1f,  0.0f, 0.0f, 0.0f,   0.35f, 0.2f, 0.1f   
-        };
-        float wdRightFace[] = {
-            1.0f, 0.0f, 1.0f,   0.35f, 0.2f, 0.1f,  1.0f, 0.0f, 0.0f,   0.35f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.35f, 0.2f, 0.1f,  1.0f, 1.0f, 0.0f,   0.35f, 0.2f, 0.1f,  
-            1.0f, 1.0f, 1.0f,   0.35f, 0.2f, 0.1f,  1.0f, 0.0f, 1.0f,   0.35f, 0.2f, 0.1f   
-        };
-
-        // --- 6. LEAVES ARRAYS (Forest Green) ---
-        float lfTopFace[] = {
-            0.0f, 1.0f, 1.0f,   0.1f, 0.35f, 0.1f,  1.0f, 1.0f, 1.0f,   0.1f, 0.35f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.1f, 0.35f, 0.1f,  1.0f, 1.0f, 0.0f,   0.1f, 0.35f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.1f, 0.35f, 0.1f,  0.0f, 1.0f, 1.0f,   0.1f, 0.35f, 0.1f   
-        };
-        float lfBottomFace[] = {
-            0.0f, 0.0f, 0.0f,   0.1f, 0.35f, 0.1f,  1.0f, 0.0f, 0.0f,   0.1f, 0.35f, 0.1f,  
-            1.0f, 0.0f, 1.0f,   0.1f, 0.35f, 0.1f,  1.0f, 0.0f, 1.0f,   0.1f, 0.35f, 0.1f,  
-            0.0f, 0.0f, 1.0f,   0.1f, 0.35f, 0.1f,  0.0f, 0.0f, 0.0f,   0.1f, 0.35f, 0.1f   
-        };
-        float lfFrontFace[] = {
-            0.0f, 0.0f, 1.0f,   0.1f, 0.35f, 0.1f,  1.0f, 0.0f, 1.0f,   0.1f, 0.35f, 0.1f,  
-            1.0f, 1.0f, 1.0f,   0.1f, 0.35f, 0.1f,  1.0f, 1.0f, 1.0f,   0.1f, 0.35f, 0.1f,  
-            0.0f, 1.0f, 1.0f,   0.1f, 0.35f, 0.1f,  0.0f, 0.0f, 1.0f,   0.1f, 0.35f, 0.1f   
-        };
-        float lfBackFace[] = {
-            1.0f, 0.0f, 0.0f,   0.1f, 0.35f, 0.1f,  0.0f, 0.0f, 0.0f,   0.1f, 0.35f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.1f, 0.35f, 0.1f,  0.0f, 1.0f, 0.0f,   0.1f, 0.35f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.1f, 0.35f, 0.1f,  1.0f, 0.0f, 0.0f,   0.1f, 0.35f, 0.1f   
-        };
-        float lfLeftFace[] = {
-            0.0f, 0.0f, 0.0f,   0.1f, 0.35f, 0.1f,  0.0f, 0.0f, 1.0f,   0.1f, 0.35f, 0.1f,  
-            0.0f, 1.0f, 1.0f,   0.1f, 0.35f, 0.1f,  0.0f, 1.0f, 1.0f,   0.1f, 0.35f, 0.1f,  
-            0.0f, 1.0f, 0.0f,   0.1f, 0.35f, 0.1f,  0.0f, 0.0f, 0.0f,   0.1f, 0.35f, 0.1f   
-        };
-        float lfRightFace[] = {
-            1.0f, 0.0f, 1.0f,   0.1f, 0.35f, 0.1f,  1.0f, 0.0f, 0.0f,   0.1f, 0.35f, 0.1f,  
-            1.0f, 1.0f, 0.0f,   0.1f, 0.35f, 0.1f,  1.0f, 1.0f, 0.0f,   0.1f, 0.35f, 0.1f,  
-            1.0f, 1.0f, 1.0f,   0.1f, 0.35f, 0.1f,  1.0f, 0.0f, 1.0f,   0.1f, 0.35f, 0.1f   
+            1.0f, 0.0f, 1.0f,   0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+            1.0f, 0.85f, 0.0f,   1.0f, 1.0f,
+            1.0f, 0.85f, 0.0f,   1.0f, 1.0f,
+            1.0f, 0.85f, 1.0f,   0.0f, 1.0f,
+            1.0f, 0.0f, 1.0f,   0.0f, 0.0f
         };
         //meshing
         for(int x = 0; x < CHUNK_SIZE; x++){
@@ -385,27 +223,71 @@ public:
                         float* left; float* front; float* back;
                     };
 
-                    BlockDefinition blockRegistry[] = {
-                        {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},                // ID 0: Air (Keeps indexes aligned)
-                        {topFace, bottomFace, rightFace, leftFace, frontFace, backFace},       // ID 1: Grass
-                        {wTopFace, wBottomFace, wRightFace, wLeftFace, wFrontFace, wBackFace}, // ID 2: Water
-                        {StopFace, SbottomFace, SrightFace, SleftFace, SfrontFace, SbackFace},
-                        {Dirt_topFace, Dirt_bottomFace, Dirt_rightFace, Dirt_leftFace, Dirt_frontFace, Dirt_backFace},
-                        {wdTopFace, wdBottomFace, wdRightFace, wdLeftFace, wdFrontFace, wdBackFace}, // ID 4: Wood
-                         {lfTopFace, lfBottomFace, lfRightFace, lfLeftFace, lfFrontFace, lfBackFace}  // ID 3: Stone
-                    };
+                    // Inside your 3D for-loop (x, y, z):
 
-                    BlockDefinition currentFaces = blockRegistry[currentBlock];
-                    float alpha = 1.00f;
-                    if(currentBlock == 2) alpha = 0.50f;
-                    else if(currentBlock == 6) alpha = 0.70f;
+                int blockID = chunkData[x][y][z];
 
-                    if (checkNeighbor(x, y + 1, z)) addFace(currentFaces.top, x, y, z, alpha);
-                    if (checkNeighbor(x, y - 1, z)) addFace(currentFaces.bottom, x, y, z, alpha);
-                    if (checkNeighbor(x + 1, y, z)) addFace(currentFaces.right, x, y, z, alpha);
-                    if (checkNeighbor(x - 1, y, z)) addFace(currentFaces.left, x, y, z, alpha);
-                    if (checkNeighbor(x, y, z + 1)) addFace(currentFaces.front, x, y, z, alpha);
-                    if (checkNeighbor(x, y, z - 1)) addFace(currentFaces.back, x, y, z, alpha);
+                if (blockID == 0) {
+                    continue; // Skip air blocks entirely!
+                }
+
+                // Draw the correct textures based on the ID
+                // Draw the correct textures based on the ID, but ONLY if the face is touching air/water!
+                switch (blockID) {
+                    case 1: // GRASS
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 8, 2);    
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 2, 0); 
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 3, 0);  
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 3, 0);   
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 3, 0);   
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 3, 0);  
+                        break;
+
+                    case 2: // WATER 
+                        if(checkNeighbor(x, y+1, z)) addFace(wTopFace, x, y, z, 13, 12); 
+                        if(checkNeighbor(x, y-1, z)) addFace(wBottomFace, x, y, z, 13, 12);
+                        if(checkNeighbor(x, y, z+1)) addFace(wFrontFace, x, y, z, 13, 12);
+                        if(checkNeighbor(x, y, z-1)) addFace(wBackFace, x, y, z, 13, 12);
+                        if(checkNeighbor(x-1, y, z)) addFace(wLeftFace, x, y, z, 13, 12);
+                        if(checkNeighbor(x+1, y, z)) addFace(wRightFace, x, y, z, 13, 12);
+                        break;
+
+                    case 3: // STONE
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 1, 0); 
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 1, 0);
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 1, 0);
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 1, 0);
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 1, 0);
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 1, 0);
+                        break;
+
+                    case 4: // DIRT
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 2, 0); 
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 2, 0);
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 2, 0);
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 2, 0);
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 2, 0);
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 2, 0);
+                        break;
+
+                    case 5: // WOOD LOG
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 5, 1);    
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 5, 1); 
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 4, 1);  
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 4, 1);
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 4, 1);
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 4, 1);
+                        break;
+
+                    case 6: // LEAVES
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 5, 3); 
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 5, 3);
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 5, 3);
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 5, 3);
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 5, 3);
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 5, 3);
+                        break;
+                }
                     
                 }
             }
@@ -420,10 +302,10 @@ public:
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, meshVertices.size() * sizeof(float), meshVertices.data(), GL_STATIC_DRAW);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
         
-        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)(3 * sizeof(float)));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
 
         glBindVertexArray(0);
@@ -437,15 +319,22 @@ public:
         }
     }
 private:
-    void addFace(float* faceVertices, int x, int y, int z, float alpha) {
-        for (int i = 0; i < 36; i += 6) {
-            meshVertices.push_back(faceVertices[i]     + x); // X
-            meshVertices.push_back(faceVertices[i + 1] + y); // Y
-            meshVertices.push_back(faceVertices[i + 2] + z); // Z
-            meshVertices.push_back(faceVertices[i + 3]);     // R
-            meshVertices.push_back(faceVertices[i + 4]);     // G
-            meshVertices.push_back(faceVertices[i + 5]);     // B
-            meshVertices.push_back(alpha);     // B
+    void addFace(float* faceVertices, int x, int y, int z, int atlasX, int atlasY) {
+        float tileSize = 1.0f / 16.0f; 
+        
+        // The X axis is normal
+        float uOffset = atlasX * tileSize;
+        
+        // THE FIX: We invert the Y axis so (0,0) starts at the TOP of the image
+        float vOffset = (15 - atlasY) * tileSize;
+
+        for (int i = 0; i < 30; i += 5) {
+            meshVertices.push_back(faceVertices[i]     + x); 
+            meshVertices.push_back(faceVertices[i + 1] + y); 
+            meshVertices.push_back(faceVertices[i + 2] + z); 
+            
+            meshVertices.push_back((faceVertices[i + 3] * tileSize) + uOffset); 
+            meshVertices.push_back((faceVertices[i + 4] * tileSize) + vOffset); 
         }
     }
 };
