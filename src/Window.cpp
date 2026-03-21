@@ -249,6 +249,12 @@ void processInput(GLFWwindow *window)
          actions.block_type = 5;
     if(glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS)
         actions.block_type = 6;
+    if(glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS)
+        actions.block_type = 7;
+    if(glfwGetKey(window, GLFW_KEY_8) == GLFW_PRESS)
+        actions.block_type = 8;
+    if(glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS)
+        actions.block_type = 9;
     // Breaking Blocks (Left Click)
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
         // Only allow a break every 0.2 seconds

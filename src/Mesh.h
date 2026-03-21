@@ -7,7 +7,7 @@
 const int CHUNK_SIZE = 64;
 
 
-inline Perlin worldGenerator(12345);
+inline Perlin worldGenerator(123762);
 
 class ChunkMesh {
 public: 
@@ -44,6 +44,9 @@ public:
                     if(y == terrainHeight) {
                         chunkData[x][y][z] = 1; 
                     }
+                    else if (y==0){
+                        chunkData[x][y][z] = 11;
+                    }
                     else if(y<terrainHeight && y>=terrainHeight-2){
                         chunkData[x][y][z] = 4; 
                     }
@@ -52,10 +55,42 @@ public:
                     }
                     else if (y <= WATER_LEVEL) {
                         chunkData[x][y][z] = 2; 
-                    } else {
+                    }
+                    
+                    else {
                         chunkData[x][y][z] = 0; // Air
                     }
+
+                    if (chunkData[x][y][z] == 3) {
+                        float andesiteScale = 0.08f; 
+
+                        float aNoise = worldGenerator.noise(
+                            (globalX + 5000.0f) * andesiteScale, 
+                            (y + 5000.0f) * andesiteScale, 
+                            (globalZ + 5000.0f) * andesiteScale
+                        );
+
+                        if (aNoise > 0.5f) {
+                            chunkData[x][y][z] = 10; 
+                        }
+                    }
+                                    // 2. CARVE WORM TUNNELS
+                    if (y <= terrainHeight-(rand()%11) && chunkData[x][y][z] != 2) {
+                        
+                        float tunnelScale = 0.03f;
+                        float tunnelRadius = 0.08f; // How thick the tube is
+
+                        // Sample two different "noise networks" by heavily offsetting the coordinates of the second one
+                        float noise1 = worldGenerator.noise(globalX * tunnelScale, y * tunnelScale, globalZ * tunnelScale);
+                        float noise2 = worldGenerator.noise((globalX + 1000) * tunnelScale, (y + 1000) * tunnelScale, (globalZ + 1000) * tunnelScale);
+
+                        // If BOTH noises are very close to 0, we are inside the tube!
+                        if (std::abs(noise1) < tunnelRadius && std::abs(noise2) < tunnelRadius && chunkData[x][y][z] != 11) {
+                            chunkData[x][y][z] = 0; // Carve tunnel
+                        }
+                    }
                 }
+
             }
         }
         for(int x = 2; x < CHUNK_SIZE - 2; x++){
@@ -211,10 +246,13 @@ public:
                         if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) return true;
                         
                         int neighbor = chunkData[nx][ny][nz];
+                        if(currentBlock == 11) return neighbor == 0;
+                        if (currentBlock == 1 || currentBlock == 3 ||currentBlock ==4 ||currentBlock==5 ||currentBlock==6 ||currentBlock == 7
+                        || currentBlock == 8 ||currentBlock == 9 ||currentBlock==10)
+                             return neighbor == 0 || neighbor ==2 ||neighbor == 11; // Grass renders against Air(0) and Water(2)
                         
-                        if (currentBlock == 1 || currentBlock == 3 ||currentBlock ==4 ||currentBlock==5 ||currentBlock==6)
-                             return neighbor == 0 || neighbor ==2 ; // Grass renders against Air(0) and Water(2)
-                        if (currentBlock == 2) return neighbor == 0; // Water renders ONLY against Air(0)
+                        if (currentBlock == 2 ) return neighbor == 0; // Water renders ONLY against Air(0)
+                        
                         return false;
                     };
 
@@ -287,7 +325,47 @@ public:
                         if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 5, 3);
                         if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 5, 3);
                         break;
-                }
+                    case 7: // oak_plank
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 4, 0); 
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 4, 0);
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 4, 0);
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 4, 0);
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 4, 0);
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 4, 0);
+                        break;
+                    case 8: // oak_plank
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 1, 3); 
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 1, 3);
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 1, 3);
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 1, 3);
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 1, 3);
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 1, 3);
+                        break;
+                    case 9: // cobblestone
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 0, 1); 
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 0, 1);
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 0, 1);
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 0, 1);
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 0, 1);
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 0, 1);
+                        break;
+                    case 10: // cobblestone
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 0, 0); 
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 0, 0);
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 0, 0);
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 0, 0);
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 0, 0);
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 0, 0);
+                        break;
+                    case 11: // WATER 
+                        if(checkNeighbor(x, y+1, z)) addFace(wTopFace, x, y, z, 15, 15); 
+                        if(checkNeighbor(x, y-1, z)) addFace(wBottomFace, x, y, z, 15, 15);
+                        if(checkNeighbor(x, y, z+1)) addFace(wFrontFace, x, y, z, 15, 15);
+                        if(checkNeighbor(x, y, z-1)) addFace(wBackFace, x, y, z, 15, 15);
+                        if(checkNeighbor(x-1, y, z)) addFace(wLeftFace, x, y, z, 15, 15);
+                        if(checkNeighbor(x+1, y, z)) addFace(wRightFace, x, y, z, 15, 15);
+                        break;
+                    }
                     
                 }
             }
