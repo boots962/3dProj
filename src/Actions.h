@@ -33,21 +33,21 @@ class Actions{
             int wy = glm::floor(currentPos.y);
             int wz = glm::floor(currentPos.z);
 
-            int cx = glm::floor((float)wx/CHUNK_SIZE); //get the chunk location
-            int cz = glm::floor((float)wz/CHUNK_SIZE); 
+            int cx = glm::floor((float)wx/CHUNK_WIDTH); //get the chunk location
+            int cz = glm::floor((float)wz/CHUNK_WIDTH); 
             
 
             if(activeChunks.count({cx,cz})){ //then the chunk is active
                 ChunkMesh*targetChunk = activeChunks[{cx,cz}];
             
 
-            int lx = wx % CHUNK_SIZE; //get local coordinate in the chunk
-            if(lx<0) lx+=CHUNK_SIZE;
-            int lz = wz % CHUNK_SIZE;
-            if(lz<0) lz+=CHUNK_SIZE;
+            int lx = wx % CHUNK_WIDTH; //get local coordinate in the chunk
+            if(lx<0) lx+=CHUNK_WIDTH;
+            int lz = wz % CHUNK_WIDTH;
+            if(lz<0) lz+=CHUNK_WIDTH;
             int ly = wy;
 
-            if(ly>=0 &&ly<CHUNK_SIZE){
+            if(ly>=0 &&ly<CHUNK_HEIGHT){
                 if(targetChunk->chunkData[lx][ly][lz] != 0 && targetChunk->chunkData[lx][ly][lz] !=2 && targetChunk->chunkData[lx][ly][lz]!=11){
                     result.hit = true;
                     result.chunk = targetChunk;
@@ -73,14 +73,33 @@ class Actions{
         
         return result;
     }
-    void breakBlock(RaycastResult ray,  std::map<std::pair<int, int>, ChunkMesh*>& activeChunks){
+    void breakBlock(RaycastResult ray, std::map<std::pair<int, int>, ChunkMesh*>& activeChunks){
         
-        if(!ray.hit||ray.chunk == nullptr){
+        if(!ray.hit || ray.chunk == nullptr){
             return;
         }
+        
+        // 1. Update and rebuild the chunk we actually clicked
         ray.chunk->chunkData[ray.lx][ray.ly][ray.lz] = 0;
-        ray.chunk->buildMesh();
-        ray.chunk->memory();;
+        ray.chunk->buildMesh(activeChunks);
+        ray.chunk->memory();
+
+        // 2. CHECK CHUNK BORDERS AND UPDATE NEIGHBORS
+        int cx = ray.chunk->chunkX;
+        int cz = ray.chunk->chunkZ;
+
+        // Helper lambda to safely rebuild a neighbor if it exists
+        auto updateNeighbor = [&](int neighborX, int neighborZ) {
+            if (activeChunks.count({neighborX, neighborZ})) {
+                activeChunks[{neighborX, neighborZ}]->buildMesh(activeChunks);
+                activeChunks[{neighborX, neighborZ}]->memory();
+            }
+        };
+
+        if (ray.lx == 0) updateNeighbor(cx - 1, cz);                   // Block was on the Left edge
+        if (ray.lx == CHUNK_WIDTH - 1) updateNeighbor(cx + 1, cz);     // Block was on the Right edge
+        if (ray.lz == 0) updateNeighbor(cx, cz - 1);                   // Block was on the Back edge
+        if (ray.lz == CHUNK_WIDTH - 1) updateNeighbor(cx, cz + 1);     // Block was on the Front edge
     }
 
     void placeBlock(RaycastResult ray, std::map<std::pair<int, int>, ChunkMesh*>& activeChunks ){
@@ -88,24 +107,39 @@ class Actions{
             return;
         }
 
-        int cx = glm::floor((float)ray.px / CHUNK_SIZE);
-        int cz = glm::floor((float)ray.pz / CHUNK_SIZE);
+        int cx = glm::floor((float)ray.px / CHUNK_WIDTH);
+        int cz = glm::floor((float)ray.pz / CHUNK_WIDTH);
 
         if(activeChunks.count({cx, cz})){
             ChunkMesh* targetChunk = activeChunks[{cx, cz}];
 
-            int localX = ray.px % CHUNK_SIZE; 
-            if(localX < 0) localX += CHUNK_SIZE;
+            int localX = ray.px % CHUNK_WIDTH; 
+            if(localX < 0) localX += CHUNK_WIDTH;
             
-            int localZ = ray.pz % CHUNK_SIZE; 
-            if(localZ < 0) localZ += CHUNK_SIZE;
+            int localZ = ray.pz % CHUNK_WIDTH;
+            if(localZ < 0) localZ += CHUNK_WIDTH;
             
             int localY = ray.py;
 
-            if(localY >= 0 && localY < CHUNK_SIZE){
+            if(localY >= 0 && localY < CHUNK_HEIGHT){
+                
+                // 1. Update and rebuild the chunk we placed the block in
                 targetChunk->chunkData[localX][localY][localZ] = block_type;
-                targetChunk->buildMesh();
+                targetChunk->buildMesh(activeChunks); 
                 targetChunk->memory();
+
+                // 2. CHECK CHUNK BORDERS AND UPDATE NEIGHBORS
+                auto updateNeighbor = [&](int neighborX, int neighborZ) {
+                    if (activeChunks.count({neighborX, neighborZ})) {
+                        activeChunks[{neighborX, neighborZ}]->buildMesh(activeChunks);
+                        activeChunks[{neighborX, neighborZ}]->memory();
+                    }
+                };
+
+                if (localX == 0) updateNeighbor(cx - 1, cz);
+                if (localX == CHUNK_WIDTH - 1) updateNeighbor(cx + 1, cz);
+                if (localZ == 0) updateNeighbor(cx, cz - 1);
+                if (localZ == CHUNK_WIDTH - 1) updateNeighbor(cx, cz + 1);
             }
         }
     }

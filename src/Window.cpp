@@ -28,7 +28,7 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 const unsigned int SCR_WIDTH = 1800;
 const unsigned int SCR_HEIGHT = 1000;
 
-Camera camera(glm::vec3(8.0f, 50.0f, 20.0f));
+Camera camera(glm::vec3(8.0f, 150.0f, 20.0f));
 
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
@@ -93,9 +93,6 @@ int main()
         return -1;
     }    
 
-    ChunkMesh chunk(0,0);
-    chunk.populateChunk();
-    chunk.buildMesh();
 
 
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -155,7 +152,7 @@ int main()
 
         processInput(window);
         
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClearColor(0.529, 0.808, 0.922, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
         glUseProgram(shaderProgram);
@@ -166,24 +163,37 @@ int main()
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
        
-        int playerChunkX = static_cast<int>(std::floor(camera.Position.x / CHUNK_SIZE));
-        int playerChunkZ = static_cast<int>(std::floor(camera.Position.z / CHUNK_SIZE));
-        std::string title = "x: "+ (std::to_string(camera.Position.x)) + "  y: " + std::to_string(camera.Position.x);
+        int playerChunkX = static_cast<int>(std::floor(camera.Position.x / CHUNK_WIDTH));
+        int playerChunkZ = static_cast<int>(std::floor(camera.Position.z / CHUNK_WIDTH));
+        std::string title = "x: "+ (std::to_string(camera.Position.x)) + "  y: " + std::to_string(camera.Position.y) + " z:" + std::to_string(camera.Position.z);
         glfwSetWindowTitle(window, title.c_str());
          
+        // PASS 1: Populate the block data for any missing chunks
         for (int x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
             for (int z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
                 
                 std::pair<int, int> chunkCoord(x, z);
                 
                 if (activeChunks.find(chunkCoord) == activeChunks.end()) {
-                    
                     ChunkMesh* newChunk = new ChunkMesh(x, z);
-                    newChunk->populateChunk();
-                    newChunk->buildMesh();
-                    newChunk->memory(); 
-                    \
+                    newChunk->populateChunk(); // Create blocks
                     activeChunks[chunkCoord] = newChunk;
+                    // DO NOT build the mesh yet! Wait for neighbors.
+                }
+            }
+        }
+
+        // PASS 2: Now that neighbors exist, build the 3D meshes
+        for (int x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
+            for (int z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
+                
+                std::pair<int, int> chunkCoord(x, z);
+                ChunkMesh* chunk = activeChunks[chunkCoord];
+                
+                // If the mesh is totally empty, it's a new chunk that needs meshing
+                if (chunk->meshVertices.empty()) {
+                    chunk->buildMesh(activeChunks); // Pass the map so it can look around!
+                    chunk->memory(); 
                 }
             }
         }
@@ -193,7 +203,7 @@ int main()
             glBindVertexArray(chunk->VAO);
             
             glm::mat4 chunkModel = glm::mat4(1.0f); 
-            chunkModel = glm::translate(chunkModel, glm::vec3(chunk->chunkX * CHUNK_SIZE, 0.0f, chunk->chunkZ * CHUNK_SIZE));
+            chunkModel = glm::translate(chunkModel, glm::vec3(chunk->chunkX * CHUNK_WIDTH, 0.0f, chunk->chunkZ * CHUNK_WIDTH));
             
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(chunkModel));
 
@@ -226,11 +236,11 @@ int main()
 }
 uint8_t getBlockAt(int globalX, int globalY, int globalZ) {
     // If we are above or below the world boundaries, treat it as air
-    if (globalY < 0 || globalY >= CHUNK_SIZE) return 0; 
+    if (globalY < 0 || globalY >= CHUNK_HEIGHT) return 0; 
 
     // Find which chunk these coordinates belong to
-    int chunkX = static_cast<int>(std::floor(static_cast<float>(globalX) / CHUNK_SIZE));
-    int chunkZ = static_cast<int>(std::floor(static_cast<float>(globalZ) / CHUNK_SIZE));
+    int chunkX = static_cast<int>(std::floor(static_cast<float>(globalX) / CHUNK_WIDTH));
+    int chunkZ = static_cast<int>(std::floor(static_cast<float>(globalZ) / CHUNK_WIDTH));
     
     std::pair<int, int> coord(chunkX, chunkZ);
     
@@ -238,8 +248,8 @@ uint8_t getBlockAt(int globalX, int globalY, int globalZ) {
     if (activeChunks.find(coord) == activeChunks.end()) return 0; 
     
     // Convert global coordinates to local 0-63 chunk coordinates
-    int localX = globalX - (chunkX * CHUNK_SIZE);
-    int localZ = globalZ - (chunkZ * CHUNK_SIZE);
+    int localX = globalX - (chunkX * CHUNK_WIDTH);
+    int localZ = globalZ - (chunkZ * CHUNK_WIDTH);
     
     return activeChunks[coord]->chunkData[localX][globalY][localZ];
 }

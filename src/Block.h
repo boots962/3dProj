@@ -3,8 +3,5 @@
 #include <cstdint>
 #include <glad/glad.h>
 
-class Block{
-    public:
-    
+#include "Mesh.h"
 
-};
