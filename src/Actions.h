@@ -48,7 +48,7 @@ class Actions{
             int ly = wy;
 
             if(ly>=0 &&ly<CHUNK_SIZE){
-                if(targetChunk->chunkData[lx][ly][lz] != 0 && targetChunk->chunkData[lx][ly][lz] !=2){
+                if(targetChunk->chunkData[lx][ly][lz] != 0 && targetChunk->chunkData[lx][ly][lz] !=2 && targetChunk->chunkData[lx][ly][lz]!=11){
                     result.hit = true;
                     result.chunk = targetChunk;
                     result.lx = lx;
@@ -88,15 +88,12 @@ class Actions{
             return;
         }
 
-        // 1. Figure out EXACTLY which chunk the new "empty space" coordinate belongs to
         int cx = glm::floor((float)ray.px / CHUNK_SIZE);
         int cz = glm::floor((float)ray.pz / CHUNK_SIZE);
 
-        // 2. Make sure that chunk is loaded in memory
         if(activeChunks.count({cx, cz})){
             ChunkMesh* targetChunk = activeChunks[{cx, cz}];
 
-            // 3. Convert Global px,py,pz into Local 0-63 coordinates
             int localX = ray.px % CHUNK_SIZE; 
             if(localX < 0) localX += CHUNK_SIZE;
             
@@ -105,7 +102,6 @@ class Actions{
             
             int localY = ray.py;
 
-            // 4. Place the block safely within array bounds!
             if(localY >= 0 && localY < CHUNK_SIZE){
                 targetChunk->chunkData[localX][localY][localZ] = block_type;
                 targetChunk->buildMesh();

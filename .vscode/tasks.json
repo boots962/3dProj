@@ -18,7 +18,9 @@
             "${workspaceFolder}/main.exe",
 
             "-I", "C:/msys64/mingw64/include",
-            // Windows Specific Linking
+            // Windows Specific Linkin
+            "-static-libgcc",
+            "-static-libstdc++",
             "-lglfw3",
             "-lopengl32",
             "-lgdi32"

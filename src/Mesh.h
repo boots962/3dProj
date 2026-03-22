@@ -44,7 +44,7 @@ public:
                     if(y == terrainHeight) {
                         chunkData[x][y][z] = 1; 
                     }
-                    else if (y==0){
+                    else if (y==1){
                         chunkData[x][y][z] = 11;
                     }
                     else if(y<terrainHeight && y>=terrainHeight-2){
@@ -74,17 +74,28 @@ public:
                             chunkData[x][y][z] = 10; 
                         }
                     }
+                    if (chunkData[x][y][z] == 3) {
+                        float gravelScale = 0.10f; 
+
+                        float aNoise = worldGenerator.noise(
+                            (globalX + 6000.0f) * gravelScale, 
+                            (y + 6000.0f) * gravelScale, 
+                            (globalZ + 6000.0f) * gravelScale
+                        );
+
+                        if (aNoise > 0.5f) {
+                            chunkData[x][y][z] = 12; 
+                        }
+                    }
                                     // 2. CARVE WORM TUNNELS
                     if (y <= terrainHeight-(rand()%11) && chunkData[x][y][z] != 2) {
                         
                         float tunnelScale = 0.03f;
-                        float tunnelRadius = 0.08f; // How thick the tube is
+                        float tunnelRadius = 0.08f; 
 
-                        // Sample two different "noise networks" by heavily offsetting the coordinates of the second one
                         float noise1 = worldGenerator.noise(globalX * tunnelScale, y * tunnelScale, globalZ * tunnelScale);
                         float noise2 = worldGenerator.noise((globalX + 1000) * tunnelScale, (y + 1000) * tunnelScale, (globalZ + 1000) * tunnelScale);
 
-                        // If BOTH noises are very close to 0, we are inside the tube!
                         if (std::abs(noise1) < tunnelRadius && std::abs(noise2) < tunnelRadius && chunkData[x][y][z] != 11) {
                             chunkData[x][y][z] = 0; // Carve tunnel
                         }
@@ -235,6 +246,7 @@ public:
             1.0f, 0.85f, 1.0f,   0.0f, 1.0f,
             1.0f, 0.0f, 1.0f,   0.0f, 0.0f
         };
+        
         //meshing
         for(int x = 0; x < CHUNK_SIZE; x++){
             for(int y = 0; y < CHUNK_SIZE; y++){
@@ -248,7 +260,7 @@ public:
                         int neighbor = chunkData[nx][ny][nz];
                         if(currentBlock == 11) return neighbor == 0;
                         if (currentBlock == 1 || currentBlock == 3 ||currentBlock ==4 ||currentBlock==5 ||currentBlock==6 ||currentBlock == 7
-                        || currentBlock == 8 ||currentBlock == 9 ||currentBlock==10)
+                        || currentBlock == 8 ||currentBlock == 9 ||currentBlock==10 ||currentBlock == 12)
                              return neighbor == 0 || neighbor ==2 ||neighbor == 11; // Grass renders against Air(0) and Water(2)
                         
                         if (currentBlock == 2 ) return neighbor == 0; // Water renders ONLY against Air(0)
@@ -364,6 +376,14 @@ public:
                         if(checkNeighbor(x, y, z-1)) addFace(wBackFace, x, y, z, 15, 15);
                         if(checkNeighbor(x-1, y, z)) addFace(wLeftFace, x, y, z, 15, 15);
                         if(checkNeighbor(x+1, y, z)) addFace(wRightFace, x, y, z, 15, 15);
+                        break;
+                    case 12: // LEAVES
+                        if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 3, 1); 
+                        if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 3, 1);
+                        if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 3, 1);
+                        if(checkNeighbor(x, y, z-1)) addFace(backFace, x, y, z, 3, 1);
+                        if(checkNeighbor(x-1, y, z)) addFace(leftFace, x, y, z, 3, 1);
+                        if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 3, 1);
                         break;
                     }
                     

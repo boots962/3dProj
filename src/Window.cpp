@@ -33,6 +33,7 @@ Camera camera(glm::vec3(8.0f, 50.0f, 20.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
+    
 
 std::map<std::pair<int, int>, ChunkMesh*> activeChunks;
 int renderDistance = 3;
@@ -145,6 +146,11 @@ int main()
     {
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
+        
+        if (deltaTime > 0.05f) {
+            deltaTime = 0.05f; 
+        }
+        
         lastFrame = currentFrame;
 
         processInput(window);
@@ -218,65 +224,163 @@ int main()
     glfwTerminate();
     return 0;
 }
+uint8_t getBlockAt(int globalX, int globalY, int globalZ) {
+    // If we are above or below the world boundaries, treat it as air
+    if (globalY < 0 || globalY >= CHUNK_SIZE) return 0; 
 
+    // Find which chunk these coordinates belong to
+    int chunkX = static_cast<int>(std::floor(static_cast<float>(globalX) / CHUNK_SIZE));
+    int chunkZ = static_cast<int>(std::floor(static_cast<float>(globalZ) / CHUNK_SIZE));
+    
+    std::pair<int, int> coord(chunkX, chunkZ);
+    
+    // If the chunk isn't loaded yet, treat it as air so we don't crash
+    if (activeChunks.find(coord) == activeChunks.end()) return 0; 
+    
+    // Convert global coordinates to local 0-63 chunk coordinates
+    int localX = globalX - (chunkX * CHUNK_SIZE);
+    int localZ = globalZ - (chunkZ * CHUNK_SIZE);
+    
+    return activeChunks[coord]->chunkData[localX][globalY][localZ];
+}
+bool checkCollision(glm::vec3 pos) {
+    // Define the player's hitbox dimensions
+    float playerWidth = 0.6f; 
+    float playerHeight = 1.8f;
+    float eyeHeight = 1.5f; // Distance from feet to the camera/eyes
+
+    // Calculate the borders of the bounding box
+    float minX = pos.x - (playerWidth / 2.0f);
+    float maxX = pos.x + (playerWidth / 2.0f);
+    float minY = pos.y - eyeHeight;
+    float maxY = pos.y + (playerHeight - eyeHeight);
+    float minZ = pos.z - (playerWidth / 2.0f);
+    float maxZ = pos.z + (playerWidth / 2.0f);
+
+    // Round down to check all integer block coordinates the box overlaps
+    int bMinX = static_cast<int>(std::floor(minX));
+    int bMaxX = static_cast<int>(std::floor(maxX));
+    int bMinY = static_cast<int>(std::floor(minY));
+    int bMaxY = static_cast<int>(std::floor(maxY));
+    int bMinZ = static_cast<int>(std::floor(minZ));
+    int bMaxZ = static_cast<int>(std::floor(maxZ));
+
+    // Loop through the overlapping blocks
+    for (int x = bMinX; x <= bMaxX; x++) {
+        for (int y = bMinY; y <= bMaxY; y++) {
+            for (int z = bMinZ; z <= bMaxZ; z++) {
+                uint8_t blockID = getBlockAt(x, y, z);
+                
+                // If it's not Air(0), Water(2), or Lava(11), it's a solid collision!
+                if (blockID != 0 && blockID != 2 && blockID != 11) {
+                    return true; 
+                }
+            }
+        }
+    }
+    return false; // Path is clear
+}
 void processInput(GLFWwindow *window)
 {
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
         
-    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
-    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
-    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.ProcessKeyboard(LEFT, deltaTime);
-    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.ProcessKeyboard(RIGHT, deltaTime);
-    if(glfwGetKey(window,GLFW_KEY_SPACE)==GLFW_PRESS)
-        camera.ProcessKeyboard(UP, deltaTime);
-    if(glfwGetKey(window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS)
-        camera.ProcessKeyboard(DOWN, deltaTime);
+    glm::vec3 oldPos = camera.Position;
+
+    // ==========================================
+    // 1. HORIZONTAL MOVEMENT (Walking)
+    // ==========================================
+    float currentSpeed = camera.MovementSpeed * deltaTime;
     static double lastBreakTime = 0.0;
+
     static double lastPlaceTime = 0.0;
+
     double currentTime = glfwGetTime();
-     if(glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
-         actions.block_type = 1;
-    if(glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
-         actions.block_type = 3;
-    if(glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
-         actions.block_type = 4;
-    if(glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS)
-         actions.block_type = 5;
-    if(glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS)
-        actions.block_type = 6;
-    if(glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS)
-        actions.block_type = 7;
-    if(glfwGetKey(window, GLFW_KEY_8) == GLFW_PRESS)
-        actions.block_type = 8;
-    if(glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS)
-        actions.block_type = 9;
+    // Flatten the directional vectors so looking up/down doesn't affect walking speed
+    glm::vec3 flatFront = glm::normalize(glm::vec3(camera.Front.x, 0.0f, camera.Front.z));
+    glm::vec3 flatRight = glm::normalize(glm::vec3(camera.Right.x, 0.0f, camera.Right.z));
+
+    glm::vec3 horizontalDelta(0.0f);
+    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) horizontalDelta += flatFront * currentSpeed;
+    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) horizontalDelta -= flatFront * currentSpeed;
+    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) horizontalDelta -= flatRight * currentSpeed;
+    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) horizontalDelta += flatRight * currentSpeed;
+    if(glfwGetKey(window,GLFW_KEY_1) == GLFW_PRESS) actions.block_type = 1;
+    if(glfwGetKey(window,GLFW_KEY_2) == GLFW_PRESS) actions.block_type = 3;
+    if(glfwGetKey(window,GLFW_KEY_3) == GLFW_PRESS) actions.block_type = 4;
+    if(glfwGetKey(window,GLFW_KEY_4) == GLFW_PRESS) actions.block_type = 5;
+    if(glfwGetKey(window,GLFW_KEY_5) == GLFW_PRESS) actions.block_type = 6;
+    if(glfwGetKey(window,GLFW_KEY_6) == GLFW_PRESS) actions.block_type = 7;
+    if(glfwGetKey(window,GLFW_KEY_7) == GLFW_PRESS) actions.block_type = 8;
+    if(glfwGetKey(window,GLFW_KEY_8) == GLFW_PRESS) actions.block_type = 9;
+    if(glfwGetKey(window,GLFW_KEY_9) == GLFW_PRESS) actions.block_type = 10;
+    // Apply and check X axis collision
+    camera.Position.x += horizontalDelta.x;
+    if (checkCollision(camera.Position)) camera.Position.x = oldPos.x;
+
+    // Apply and check Z axis collision
+    camera.Position.z += horizontalDelta.z;
+    if (checkCollision(camera.Position)) camera.Position.z = oldPos.z;
+
+    // ==========================================
+    // 2. VERTICAL MOVEMENT (Gravity & Jumping)
+    // ==========================================
+    float gravity = -25.0f; // Blocks per second squared
+    float jumpForce = 9.0f; // Initial upward burst
+
+    // Accelerate downward over time
+    camera.verticalVelocity += gravity * deltaTime;
+
+    // Trigger jump ONLY if the player is resting on a solid block
+    if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && camera.isGrounded) {
+        camera.verticalVelocity = jumpForce;
+        camera.isGrounded = false; 
+    }
+
+    // Apply the velocity to our actual Y position
+    camera.Position.y += camera.verticalVelocity * deltaTime;
+
+    // Assume we are in the air until we prove otherwise
+    camera.isGrounded = false; 
+
+    // Check Y axis collision
+    if (checkCollision(camera.Position)) {
+        camera.Position.y = oldPos.y; // Revert position to avoid clipping
+        
+        // If we were falling and hit something, we hit the floor
+        if (camera.verticalVelocity < 0.0f) {
+            camera.isGrounded = true; 
+        }
+        
+        // Whether we hit the floor or bumped our head on the ceiling, stop vertical momentum
+        camera.verticalVelocity = 0.0f; 
+    }
+
+    // Keep coordinate trackers in sync
+    camera.xCoords = camera.Position.x;
+    camera.yCoords = camera.Position.y;
+    camera.zCoords = camera.Position.z;
+
+    // ... (Keep your existing block breaking/placing code below this) ...
     // Breaking Blocks (Left Click)
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
-        // Only allow a break every 0.2 seconds
         if (currentTime - lastBreakTime > 0.2) { 
-            
             RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
             if(ray.hit){
                 actions.breakBlock(ray, activeChunks);
             }
-            lastBreakTime = currentTime; // Reset the timer
+            lastBreakTime = currentTime; 
         }
     }
 
     // Placing Blocks (G Key)
     if(glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS){
-        // Only allow a place every 0.2 seconds
         if (currentTime - lastPlaceTime > 0.2) {
             RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
             if(ray.hit){
                 actions.placeBlock(ray, activeChunks);
             }
-            lastPlaceTime = currentTime; // Reset the timer
+            lastPlaceTime = currentTime; 
         }
     }
 }

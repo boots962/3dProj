@@ -25,6 +25,8 @@ const float SENSITIVITY = 0.1f;
 class Camera
 {
 public:
+    float verticalVelocity = 0.0f;
+    bool isGrounded = false;
     // Camera Attributes
     glm::vec3 looking_at;
     glm::vec3 Position;
@@ -62,24 +64,33 @@ public:
 
     // Processes input received from a keyboard
     void ProcessKeyboard(Camera_Movement direction, float deltaTime)
-    {
-        float velocity = MovementSpeed * deltaTime;
-        if (direction == FORWARD)
-            Position += Front * velocity;
-        if (direction == BACKWARD)
-            Position -= Front * velocity;
-        if (direction == LEFT)
-            Position -= Right * velocity;
-        if (direction == RIGHT)
-            Position += Right * velocity;
-        if(direction == UP)
-            Position += WorldUp *velocity;
-        if(direction == DOWN)
-            Position -= WorldUp *velocity;
-        xCoords = Position[0];
-        yCoords = Position[1];
-        zCoords = Position[2];
-    }
+{
+    float velocity = MovementSpeed * deltaTime;
+    
+    // Create a flattened version of the Front vector
+    glm::vec3 flatFront = glm::normalize(glm::vec3(Front.x, 0.0f, Front.z));
+    // Create a flattened version of the Right vector
+    glm::vec3 flatRight = glm::normalize(glm::vec3(Right.x, 0.0f, Right.z));
+
+    if (direction == FORWARD)
+        Position += flatFront * velocity;
+    if (direction == BACKWARD)
+        Position -= flatFront * velocity;
+    if (direction == LEFT)
+        Position -= flatRight * velocity;
+    if (direction == RIGHT)
+        Position += flatRight * velocity;
+    
+    // UP and DOWN can stay the same, or you can map UP to a "Jump" variable later!
+    if(direction == UP)
+        Position += WorldUp * velocity;
+    if(direction == DOWN)
+        Position -= WorldUp * velocity;
+
+    xCoords = Position[0];
+    yCoords = Position[1];
+    zCoords = Position[2];
+}
 
     // Processes input received from a mouse input system
     void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true)
