@@ -152,7 +152,7 @@ int main()
 
         processInput(window);
         
-        glClearColor(0.529, 0.808, 0.922, 1.0f);
+        glClearColor(0.529, 0.75, 0.922, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
         glUseProgram(shaderProgram);

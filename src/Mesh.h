@@ -88,46 +88,7 @@ public:
                             chunkData[x][y][z] = 12; 
                         }
                     }
-                    if (chunkData[x][y][z] == 3) {
-                        float coalScale = 0.025f; 
-
-                        float aNoise = worldGenerator.noise(
-                            (globalX + 6000.0f) * coalScale, 
-                            (y + 6000.0f) * coalScale, 
-                            (globalZ + 6000.0f) * coalScale
-                        );
-
-                        if (aNoise > 0.5f) {
-                            chunkData[x][y][z] = 13; 
-                        }
-                    }
-                    if (chunkData[x][y][z] == 3) {
-                        float ironScale = 0.02f; 
-
-                        float aNoise = worldGenerator.noise(
-                            (globalX + 5000.0f) * ironScale, 
-                            (y + 5000.0f) * ironScale, 
-                            (globalZ + 5000.0f) * ironScale
-                        );
-
-                        if (aNoise > 0.55f) {
-                            chunkData[x][y][z] = 14; 
-                        }
-                    }
-                    if (chunkData[x][y][z] == 3 && y < 32) {
-                        float diamondScale = 0.01f; 
-                        
-
-                        float aNoise = worldGenerator.noise(
-                            (globalX + 5000.0f) * diamondScale, 
-                            (y + 5000.0f) * diamondScale, 
-                            (globalZ + 5000.0f) * diamondScale
-                        );
-
-                        if (aNoise > 0.50f || ((y<15)&&aNoise>0.35f)) {
-                            chunkData[x][y][z] = 15; 
-                        }
-                    }
+                    
                                     // 2. CARVE WORM TUNNELS
                     if (y <= terrainHeight-(rand()%11) && chunkData[x][y][z] != 2) {
                         
@@ -145,6 +106,44 @@ public:
 
             }
         }
+
+        auto spawnVein = [&](int blockID, int maxBlocks, int minY, int maxY, int veinsPerChunk) {
+            for (int v = 0; v < veinsPerChunk; v++) {
+                
+                int currentX = rand() % CHUNK_WIDTH;
+                int currentZ = rand() % CHUNK_WIDTH;
+                int currentY = minY + (rand() % (maxY - minY + 1));
+
+                if (chunkData[currentX][currentY][currentZ] == 3) {
+                    
+                    for (int b = 0; b < maxBlocks; b++) {
+                        
+                        if (currentX >= 0 && currentX < CHUNK_WIDTH &&
+                            currentY >= 0 && currentY < CHUNK_HEIGHT &&
+                            currentZ >= 0 && currentZ < CHUNK_WIDTH &&
+                            chunkData[currentX][currentY][currentZ] == 3) {
+                            
+                            chunkData[currentX][currentY][currentZ] = blockID;
+                        }
+
+                        int direction = rand() % 6;
+                        if (direction == 0) currentX++;
+                        if (direction == 1) currentX--;
+                        if (direction == 2) currentY++;
+                        if (direction == 3) currentY--;
+                        if (direction == 4) currentZ++;
+                        if (direction == 5) currentZ--;
+                    }
+                }
+            }
+        };
+
+        spawnVein(13, 12, 0, 100, 20); 
+
+        spawnVein(14, 8, 0, 80, 15);
+
+        spawnVein(15, 8, 0, 32, 4);
+
         for(int x = 2; x < CHUNK_WIDTH - 2; x++){
             for(int z = 2; z < CHUNK_WIDTH - 2; z++){
                 for(int y = 1; y < CHUNK_HEIGHT- 6; y++){
