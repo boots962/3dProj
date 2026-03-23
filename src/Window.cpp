@@ -384,7 +384,7 @@ void processInput(GLFWwindow *window)
     }
 
     // Placing Blocks (G Key)
-    if(glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS){
+    if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS){
         if (currentTime - lastPlaceTime > 0.2) {
             RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
             if(ray.hit){
