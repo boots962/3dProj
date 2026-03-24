@@ -42,7 +42,6 @@ public:
         glDeleteShader(uiVertexShader);
         glDeleteShader(uiFragmentShader);
 
-        // --- 2. SETUP GEOMETRY ---
         float crosshairVertices[] = {
             // Horizontal line
             -0.02f,  0.0f,   

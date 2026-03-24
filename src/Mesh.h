@@ -4,8 +4,8 @@
 #include <glad/glad.h>
 
 #include "Perlin.h"
-const int CHUNK_WIDTH = 16;   // For X and Z
-const int CHUNK_HEIGHT = 256; // For Y (Make this 256 if you want massive mountains later!)
+const int CHUNK_WIDTH = 16;   
+const int CHUNK_HEIGHT = 256; 
 
 
 inline Perlin worldGenerator(123762);
@@ -89,7 +89,6 @@ public:
                         }
                     }
                     
-                                    // 2. CARVE WORM TUNNELS
                     if (y <= terrainHeight-(rand()%11) && chunkData[x][y][z] != 2) {
                         
                         float tunnelScale = 0.03f;
@@ -99,9 +98,10 @@ public:
                         float noise2 = worldGenerator.noise((globalX + 1000) * tunnelScale, (y + 1000) * tunnelScale, (globalZ + 1000) * tunnelScale);
 
                         if (std::abs(noise1) < tunnelRadius && std::abs(noise2) < tunnelRadius && chunkData[x][y][z] != 11) {
-                            chunkData[x][y][z] = 0; // Carve tunnel
+                            chunkData[x][y][z] = 0; 
                         }
                     }
+
                 }
 
             }
@@ -188,7 +188,6 @@ public:
     void buildMesh(std::map<std::pair<int, int>, ChunkMesh*>& activeChunks) {
         meshVertices.clear();
 
-        // --- GENERIC CUBE FACES (X, Y, Z, U, V) ---
         float topFace[] = {
             0.0f, 1.0f, 1.0f,   0.0f, 1.0f,
             1.0f, 1.0f, 1.0f,   1.0f, 1.0f,
@@ -237,7 +236,6 @@ public:
             1.0f, 1.0f, 1.0f,   0.0f, 1.0f,
             1.0f, 0.0f, 1.0f,   0.0f, 0.0f
         };
-        // --- WATER CUBE FACES (Y is dipped to 0.85f) ---
         float wTopFace[] = {
             0.0f, 0.85f, 1.0f,   0.0f, 1.0f,
             1.0f, 0.85f, 1.0f,   1.0f, 1.0f,
@@ -293,14 +291,12 @@ public:
                 for(int z = 0; z < CHUNK_WIDTH; z++){
                     
                     int currentBlock = chunkData[x][y][z];
-                    if(currentBlock == 0) continue; // skip air
+                    if(currentBlock == 0) continue;
                     auto checkNeighbor = [&](int nx, int ny, int nz) {
-                    // 1. Check top/bottom of the world
                     if (ny < 0 || ny >= CHUNK_HEIGHT) return true;
 
                     int neighborBlock = 0;
 
-                    // 2. Check if the block is outside our current chunk's X or Z boundaries
                     if (nx < 0 || nx >= CHUNK_WIDTH || nz < 0 || nz >= CHUNK_WIDTH) {
                         
                         int neighborChunkX = chunkX;
@@ -308,7 +304,6 @@ public:
                         int localX = nx;
                         int localZ = nz;
 
-                        // Wrap the local coordinates and shift the target chunk coordinate
                         if (nx < 0) { neighborChunkX--; localX = CHUNK_WIDTH - 1; }
                         else if (nx >= CHUNK_WIDTH) { neighborChunkX++; localX = 0; }
 
@@ -317,21 +312,16 @@ public:
 
                         std::pair<int, int> neighborCoord(neighborChunkX, neighborChunkZ);
 
-                        // If the neighboring chunk hasn't been generated yet (edge of render distance), 
-                        // draw the face so we don't see "through" the world into the void.
                         if (activeChunks.find(neighborCoord) == activeChunks.end()) {
                             return true;
                         }
 
-                        // If it DOES exist, grab the actual block data from that neighboring chunk!
                         neighborBlock = activeChunks[neighborCoord]->chunkData[localX][ny][localZ];
                     } 
                     else {
-                        // 3. The block is safely inside our own chunk
                         neighborBlock = chunkData[nx][ny][nz];
                     }
 
-                    // 4. Run your exact same transparency/rendering rules!
                     if(currentBlock == 11) return neighborBlock == 0;
                     
                     if (currentBlock == 1 || currentBlock == 3 || currentBlock == 4 || currentBlock == 5 || currentBlock == 6 || currentBlock == 7 || currentBlock == 8 || currentBlock == 9 || currentBlock == 10 || currentBlock == 12 ||currentBlock == 13 ||currentBlock == 14 ||currentBlock == 15)
@@ -347,15 +337,14 @@ public:
                         float* left; float* front; float* back;
                     };
 
-                    // Inside your 3D for-loop (x, y, z):
 
                 int blockID = chunkData[x][y][z];
 
                 if (blockID == 0) {
-                            continue; // Skip air blocks entirely!
+                            continue; 
                 }
                 switch (blockID) {
-                    case 1: // GRASS
+                    case 1: //Grass
                         if(checkNeighbor(x, y+1, z)) addFace(topFace, x, y, z, 8, 2);    
                         if(checkNeighbor(x, y-1, z)) addFace(bottomFace, x, y, z, 2, 0); 
                         if(checkNeighbor(x, y, z+1)) addFace(frontFace, x, y, z, 3, 0);  
@@ -481,11 +470,6 @@ public:
                         if(checkNeighbor(x+1, y, z)) addFace(rightFace, x, y, z, 2, 3);
                         break;
                  }
-    
-
-
-                // Draw the correct textures based on the ID
-                // Draw the correct textures based on the ID, but ONLY if the face is touching air/water!
                 
                     
                 }
@@ -521,10 +505,8 @@ public:
     void addFace(float* faceVertices, int x, int y, int z, int atlasX, int atlasY) {
         float tileSize = 1.0f / 16.0f; 
         
-        // The X axis is normal
         float uOffset = atlasX * tileSize;
         
-        // THE FIX: We invert the Y axis so (0,0) starts at the TOP of the image
         float vOffset = (15 - atlasY) * tileSize;
 
         for (int i = 0; i < 30; i += 5) {

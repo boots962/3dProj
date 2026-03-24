@@ -79,16 +79,13 @@ class Actions{
             return;
         }
         
-        // 1. Update and rebuild the chunk we actually clicked
         ray.chunk->chunkData[ray.lx][ray.ly][ray.lz] = 0;
         ray.chunk->buildMesh(activeChunks);
         ray.chunk->memory();
 
-        // 2. CHECK CHUNK BORDERS AND UPDATE NEIGHBORS
         int cx = ray.chunk->chunkX;
         int cz = ray.chunk->chunkZ;
 
-        // Helper lambda to safely rebuild a neighbor if it exists
         auto updateNeighbor = [&](int neighborX, int neighborZ) {
             if (activeChunks.count({neighborX, neighborZ})) {
                 activeChunks[{neighborX, neighborZ}]->buildMesh(activeChunks);
@@ -123,12 +120,10 @@ class Actions{
 
             if(localY >= 0 && localY < CHUNK_HEIGHT){
                 
-                // 1. Update and rebuild the chunk we placed the block in
                 targetChunk->chunkData[localX][localY][localZ] = block_type;
                 targetChunk->buildMesh(activeChunks); 
                 targetChunk->memory();
 
-                // 2. CHECK CHUNK BORDERS AND UPDATE NEIGHBORS
                 auto updateNeighbor = [&](int neighborX, int neighborZ) {
                     if (activeChunks.count({neighborX, neighborZ})) {
                         activeChunks[{neighborX, neighborZ}]->buildMesh(activeChunks);
