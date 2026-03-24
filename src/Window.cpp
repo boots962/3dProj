@@ -60,12 +60,51 @@ const char *vertexShaderSource = "#version 330 core\n"
 const char *fragmentShaderSource = "#version 330 core\n"
     "out vec4 FragColor;\n"
     "in vec2 TexCoord;\n"
-    "in vec3 FragPos;\n" 
+    "in vec3 FragPos;\n"
+    
     "uniform sampler2D textureAtlas;\n"
-    "uniform vec3 viewPos;\n"  
-    "uniform vec3 skyColor;\n" 
-    "uniform vec3 sunColor;\n"
-    "uniform bool isSun;\n" 
+    "uniform vec3 viewPos;\n"
+    "uniform vec3 skyColor;\n"
+    
+    // NEW PBR UNIFORMS
+    "uniform vec3 sunDir;\n"   // Direction pointing TOWARDS the sun
+    "uniform vec3 sunColor;\n" // Color and intensity of the sun
+    "uniform bool isSun;\n"
+    
+    "const float PI = 3.14159265359;\n"
+
+    // --- PBR MATHEMATICAL FUNCTIONS ---
+    "float DistributionGGX(vec3 N, vec3 H, float roughness) {\n"
+    "    float a = roughness*roughness;\n"
+    "    float a2 = a*a;\n"
+    "    float NdotH = max(dot(N, H), 0.0);\n"
+    "    float NdotH2 = NdotH*NdotH;\n"
+    "    float nom   = a2;\n"
+    "    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\n"
+    "    denom = PI * denom * denom;\n"
+    "    return nom / max(denom, 0.0000001);\n"
+    "}\n"
+
+    "float GeometrySchlickGGX(float NdotV, float roughness) {\n"
+    "    float r = (roughness + 1.0);\n"
+    "    float k = (r*r) / 8.0;\n"
+    "    float nom   = NdotV;\n"
+    "    float denom = NdotV * (1.0 - k) + k;\n"
+    "    return nom / denom;\n"
+    "}\n"
+
+    "float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {\n"
+    "    float NdotV = max(dot(N, V), 0.0);\n"
+    "    float NdotL = max(dot(N, L), 0.0);\n"
+    "    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\n"
+    "    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\n"
+    "    return ggx1 * ggx2;\n"
+    "}\n"
+
+    "vec3 fresnelSchlick(float cosTheta, vec3 F0) {\n"
+    "    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);\n"
+    "}\n"
+
     "void main()\n"
     "{\n"
     "   if(isSun) {\n"
@@ -75,10 +114,52 @@ const char *fragmentShaderSource = "#version 330 core\n"
     
     "   vec4 texColor = texture(textureAtlas, TexCoord);\n"
     "   if(texColor.a < 0.1) discard;\n"
+
+    "   vec3 albedo = pow(texColor.rgb, vec3(2.2));\n" 
+    "   float metallic = 0.0;\n"  
+    "   float roughness = 0.85;\n" 
+    "   float ao = 1.0;\n"
+
+    "   vec3 dx = dFdx(FragPos);\n"
+    "   vec3 dy = dFdy(FragPos);\n"
+    "   vec3 N = normalize(cross(dx, dy));\n"
+    
+    "   vec3 V = normalize(viewPos - FragPos);\n"
+    "   vec3 F0 = mix(vec3(0.04), albedo, metallic);\n"
+
+    // 3. THE RENDERING EQUATION
+    "   vec3 Lo = vec3(0.0);\n"
+    "   vec3 L = normalize(sunDir);\n"
+    "   vec3 H = normalize(V + L);\n"
+    
+    "   vec3 radiance = sunColor * 3.0;\n" 
+
+    "   float NDF = DistributionGGX(N, H, roughness);\n"   
+    "   float G   = GeometrySmith(N, V, L, roughness);\n"      
+    "   vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);\n"
+       
+    "   vec3 numerator    = NDF * G * F;\n"
+    "   float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;\n"
+    "   vec3 specular     = numerator / denominator;\n"
+    
+    "   vec3 kS = F;\n"
+    "   vec3 kD = vec3(1.0) - kS;\n"
+    "   kD *= 1.0 - metallic;\n"
+    
+    "   float NdotL = max(dot(N, L), 0.0);\n"
+    "   Lo += (kD * albedo / PI + specular) * radiance * NdotL;\n"
+
+    "   vec3 ambient = vec3(0.1) * albedo * ao;\n"
+    "   vec3 color = ambient + Lo;\n"
+
+    "   float exposure = 1.5;\n"
+    "   color = color * exposure;\n"
+    "   color = color / (color + vec3(1.0));\n"
+    "   color = pow(color, vec3(1.0/2.2));\n"
+
     "   float dist = distance(viewPos, FragPos);\n"
     "   float fogFactor = clamp((dist - 40.0) / (90.0 - 40.0), 0.0, 1.0);\n"
-    "   vec4 finalColor = mix(texColor, vec4(skyColor, 1.0), fogFactor);\n"
-    "   FragColor = finalColor;\n"
+    "   FragColor = mix(vec4(color, 1.0), vec4(skyColor, 1.0), fogFactor);\n"
     "}\n\0";
 
 int main()
@@ -193,6 +274,7 @@ int main()
     
     int isSunLoc = glGetUniformLocation(shaderProgram, "isSun");
     int sunColorLoc = glGetUniformLocation(shaderProgram, "sunColor");
+    int sunDirLoc = glGetUniformLocation(shaderProgram, "sunDir");
 
     while (!glfwWindowShouldClose(window)) 
     {
@@ -263,6 +345,24 @@ int main()
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniform3fv(viewPosLoc, 1, glm::value_ptr(camera.Position));
         glUniform3fv(skyColorLoc, 1, glm::value_ptr(skyColor));
+        glEnable(GL_DEPTH_TEST); 
+        glUniform1i(isSunLoc, 0); 
+
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        glUniform3fv(viewPosLoc, 1, glm::value_ptr(camera.Position));
+        glUniform3fv(skyColorLoc, 1, glm::value_ptr(skyColor));
+
+        float time = (float)glfwGetTime();
+        float orbitSpeed = 0.01f;
+        
+        glm::vec3 currentSunPos = glm::vec3(
+            0.0f, 
+            sin(time * orbitSpeed) * 50.0f, 
+            -cos(time * orbitSpeed) * 50.0f
+        );
+        
+        glm::vec3 sunDirection = glm::normalize(currentSunPos);
+        glUniform3fv(sunDirLoc, 1, glm::value_ptr(sunDirection));
 
         for (auto const& [coord, chunk] : activeChunks) {
             glBindVertexArray(chunk->VAO);

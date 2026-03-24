@@ -6,18 +6,17 @@
 #include <glm/gtc/type_ptr.hpp>
 
 const char *uiVertexShaderSource = "#version 330 core\n"
-    "layout (location = 0) in vec2 aPos;\n" // Notice it's vec2! Just X and Y.
+    "layout (location = 0) in vec2 aPos;\n" 
     "void main()\n"
     "{\n"
     "   gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);\n" 
     "}\0";
 
-// UI Fragment Shader: Paints the pixel solid white
 const char *uiFragmentShaderSource = "#version 330 core\n"
     "out vec4 FragColor;\n"
     "void main()\n"
     "{\n"
-    "   FragColor = vec4(1.0f, 1.0f, 1.0f, 0.8f);\n" // White with a tiny bit of transparency
+    "   FragColor = vec4(1.0f, 1.0f, 1.0f, 0.8f);\n" 
     "}\n\0";
 
 class UI {
