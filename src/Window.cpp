@@ -44,26 +44,122 @@ float lastFrame = 0.0f;
 
 const char *vertexShaderSource = "#version 330 core\n"
     "layout (location = 0) in vec3 aPos;\n"
-    "layout (location = 1) in vec2 aTexCoord;\n" // NEW: vec2 instead of vec4
+    "layout (location = 1) in vec2 aTexCoord;\n"
     "out vec2 TexCoord;\n"
+    "out vec3 FragPos;\n" 
     "uniform mat4 model;\n"      
     "uniform mat4 view;\n"
     "uniform mat4 projection;\n"
     "void main()\n"
     "{\n"
-    "   gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+    "   FragPos = vec3(model * vec4(aPos, 1.0));\n" 
+    "   gl_Position = projection * view * vec4(FragPos, 1.0);\n"
     "   TexCoord = aTexCoord;\n"
     "}\0";
 
 const char *fragmentShaderSource = "#version 330 core\n"
     "out vec4 FragColor;\n"
     "in vec2 TexCoord;\n"
-    "uniform sampler2D textureAtlas;\n" // NEW: The actual image!
+    "in vec3 FragPos;\n"
+    
+    "uniform sampler2D textureAtlas;\n"
+    "uniform vec3 viewPos;\n"
+    "uniform vec3 skyColor;\n"
+    
+    // NEW PBR UNIFORMS
+    "uniform vec3 sunDir;\n"   // Direction pointing TOWARDS the sun
+    "uniform vec3 sunColor;\n" // Color and intensity of the sun
+    "uniform bool isSun;\n"
+    
+    "const float PI = 3.14159265359;\n"
+
+    // --- PBR MATHEMATICAL FUNCTIONS ---
+    "float DistributionGGX(vec3 N, vec3 H, float roughness) {\n"
+    "    float a = roughness*roughness;\n"
+    "    float a2 = a*a;\n"
+    "    float NdotH = max(dot(N, H), 0.0);\n"
+    "    float NdotH2 = NdotH*NdotH;\n"
+    "    float nom   = a2;\n"
+    "    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\n"
+    "    denom = PI * denom * denom;\n"
+    "    return nom / max(denom, 0.0000001);\n"
+    "}\n"
+
+    "float GeometrySchlickGGX(float NdotV, float roughness) {\n"
+    "    float r = (roughness + 1.0);\n"
+    "    float k = (r*r) / 8.0;\n"
+    "    float nom   = NdotV;\n"
+    "    float denom = NdotV * (1.0 - k) + k;\n"
+    "    return nom / denom;\n"
+    "}\n"
+
+    "float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {\n"
+    "    float NdotV = max(dot(N, V), 0.0);\n"
+    "    float NdotL = max(dot(N, L), 0.0);\n"
+    "    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\n"
+    "    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\n"
+    "    return ggx1 * ggx2;\n"
+    "}\n"
+
+    "vec3 fresnelSchlick(float cosTheta, vec3 F0) {\n"
+    "    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);\n"
+    "}\n"
+
     "void main()\n"
     "{\n"
+    "   if(isSun) {\n"
+    "       FragColor = vec4(sunColor, 1.0);\n"
+    "       return;\n"
+    "   }\n"
+    
     "   vec4 texColor = texture(textureAtlas, TexCoord);\n"
-    "   if(texColor.a < 0.1) discard;\n" // Keeps your leaf transparency working!
-    "   FragColor = texColor;\n"
+    "   if(texColor.a < 0.1) discard;\n"
+
+    "   vec3 albedo = pow(texColor.rgb, vec3(2.2));\n" 
+    "   float metallic = 0.0;\n"  
+    "   float roughness = 0.85;\n" 
+    "   float ao = 1.0;\n"
+
+    "   vec3 dx = dFdx(FragPos);\n"
+    "   vec3 dy = dFdy(FragPos);\n"
+    "   vec3 N = normalize(cross(dx, dy));\n"
+    
+    "   vec3 V = normalize(viewPos - FragPos);\n"
+    "   vec3 F0 = mix(vec3(0.04), albedo, metallic);\n"
+
+    // 3. THE RENDERING EQUATION
+    "   vec3 Lo = vec3(0.0);\n"
+    "   vec3 L = normalize(sunDir);\n"
+    "   vec3 H = normalize(V + L);\n"
+    
+    "   vec3 radiance = sunColor * 3.0;\n" 
+
+    "   float NDF = DistributionGGX(N, H, roughness);\n"   
+    "   float G   = GeometrySmith(N, V, L, roughness);\n"      
+    "   vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);\n"
+       
+    "   vec3 numerator    = NDF * G * F;\n"
+    "   float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;\n"
+    "   vec3 specular     = numerator / denominator;\n"
+    
+    "   vec3 kS = F;\n"
+    "   vec3 kD = vec3(1.0) - kS;\n"
+    "   kD *= 1.0 - metallic;\n"
+    
+    "   float NdotL = max(dot(N, L), 0.0);\n"
+    "   Lo += (kD * albedo / PI + specular) * radiance * NdotL;\n"
+
+    "   vec3 ambient = vec3(0.1) * albedo * ao;\n"
+    "   vec3 color = ambient + Lo;\n"
+
+    "   float exposure = 1.5;\n"
+    "   color = color * exposure;\n"
+    "   color = color / (color + vec3(1.0));\n"
+    "   color = pow(color, vec3(1.0/2.2));\n"
+
+    "   float dist = distance(viewPos, FragPos);\n"
+    "   float fogFactor = clamp((dist - 40.0) / (90.0 - 40.0), 0.0, 1.0);\n"
+    "   FragColor = mix(vec4(color, 1.0), vec4(skyColor, 1.0), fogFactor);\n"
     "}\n\0";
 
 int main()
@@ -93,7 +189,35 @@ int main()
         return -1;
     }    
 
+    float vertices[] = {
+        5.0f, 5.0f, 0.0f,
+        5.0f, -5.0f, 0.0f,
 
+        -5.0f, -5.0f, 0.0f,
+        -5.0f, 5.0f, 0.0f
+    };
+    unsigned int indices[] = {
+        0,1,2,
+        0,2,3
+    };
+    unsigned int sunVAO;
+    unsigned int sunEBO;
+    unsigned int sunVBO;
+    glGenVertexArrays(1, &sunVAO);  
+    glBindVertexArray(sunVAO);
+    
+    glGenBuffers(1, &sunVBO);  
+    glBindBuffer(GL_ARRAY_BUFFER, sunVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glGenBuffers(1, &sunEBO);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sunEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0); //sun/moon
+
+    glBindVertexArray(0);
 
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
@@ -115,7 +239,17 @@ int main()
     int modelLoc = glGetUniformLocation(shaderProgram, "model");
     int viewLoc = glGetUniformLocation(shaderProgram, "view");
     int projLoc = glGetUniformLocation(shaderProgram, "projection");
+    glm::vec3 skyColor(0.5f, 0.8f, 1.0f);
 
+    
+    int viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
+    int skyColorLoc = glGetUniformLocation(shaderProgram, "skyColor");
+
+    
+    glClearColor(skyColor.x, skyColor.y, skyColor.z, 1.0f); 
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
+
+   
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -123,12 +257,11 @@ int main()
     glGenTextures(1, &textureAtlas);
     glBindTexture(GL_TEXTURE_2D, textureAtlas);
     
-    // Set to GL_NEAREST to get that crisp, pixelated voxel look!
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     
     int width, height, nrChannels;
-    stbi_set_flip_vertically_on_load(true); // OpenGL expects 0.0 on the Y axis to be at the bottom
+    stbi_set_flip_vertically_on_load(true); 
     unsigned char *data = stbi_load("image.jpg", &width, &height, &nrChannels, 4);
     if (data) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -138,93 +271,115 @@ int main()
     UI ui;
     ui.set2D();
     
-    // render loop
+    
+    int isSunLoc = glGetUniformLocation(shaderProgram, "isSun");
+    int sunColorLoc = glGetUniformLocation(shaderProgram, "sunColor");
+    int sunDirLoc = glGetUniformLocation(shaderProgram, "sunDir");
+
     while (!glfwWindowShouldClose(window)) 
     {
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
-        
-        if (deltaTime > 0.05f) {
-            deltaTime = 0.05f; 
-        }
-        
+        if (deltaTime > 0.05f) deltaTime = 0.05f; 
         lastFrame = currentFrame;
 
         processInput(window);
         
-        glClearColor(0.529, 0.75, 0.922, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
-
-        glUseProgram(shaderProgram);
-
-        glm::mat4 view = camera.GetViewMatrix();
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-       
         int playerChunkX = static_cast<int>(std::floor(camera.Position.x / CHUNK_WIDTH));
         int playerChunkZ = static_cast<int>(std::floor(camera.Position.z / CHUNK_WIDTH));
         std::string title = "x: "+ (std::to_string(camera.Position.x)) + "  y: " + std::to_string(camera.Position.y) + " z:" + std::to_string(camera.Position.z);
         glfwSetWindowTitle(window, title.c_str());
-         
-        // PASS 1: Populate the block data for any missing chunks
+
         for (int x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
             for (int z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
-                
                 std::pair<int, int> chunkCoord(x, z);
-                
                 if (activeChunks.find(chunkCoord) == activeChunks.end()) {
                     ChunkMesh* newChunk = new ChunkMesh(x, z);
-                    newChunk->populateChunk(); // Create blocks
+                    newChunk->populateChunk();
                     activeChunks[chunkCoord] = newChunk;
-                    // DO NOT build the mesh yet! Wait for neighbors.
                 }
             }
         }
 
-        // PASS 2: Now that neighbors exist, build the 3D meshes
         for (int x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
             for (int z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
-                
                 std::pair<int, int> chunkCoord(x, z);
                 ChunkMesh* chunk = activeChunks[chunkCoord];
-                
-                // If the mesh is totally empty, it's a new chunk that needs meshing
                 if (chunk->meshVertices.empty()) {
-                    chunk->buildMesh(activeChunks); // Pass the map so it can look around!
+                    chunk->buildMesh(activeChunks); 
                     chunk->memory(); 
                 }
             }
         }
 
+        glClearColor(skyColor.x, skyColor.y, skyColor.z, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
+
+        // Get matrices ready
+        glm::mat4 view = camera.GetViewMatrix();
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 200.0f);
+        
+        glUseProgram(shaderProgram);
+        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+        glDisable(GL_DEPTH_TEST); // Draw behind everything
+        glUniform1i(isSunLoc, 1); 
+
+        glm::mat4 sunModel = glm::mat4(1.0f);
+        float orbit = 0.01f; // Slowed it down slightly so it's less chaotic
+        sunModel = glm::rotate(sunModel, (float)glfwGetTime() * orbit, glm::vec3(1.0f, 0.0f, 0.0f));
+        sunModel = glm::translate(sunModel, glm::vec3(0.0f, 0.0f, -50.0f));
+
+        glm::mat4 skyView = glm::mat4(glm::mat3(camera.GetViewMatrix())); // Lock to player
+        
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(sunModel));
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(skyView));
+        glUniform3f(sunColorLoc, 1.0f, 1.0f, 1.0f);
+
+        glBindVertexArray(sunVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        glEnable(GL_DEPTH_TEST);  // Turn depth back on for 3D blocks
+        glUniform1i(isSunLoc, 0); // Tell shader we are back to drawing textures
+
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        glUniform3fv(viewPosLoc, 1, glm::value_ptr(camera.Position));
+        glUniform3fv(skyColorLoc, 1, glm::value_ptr(skyColor));
+        glEnable(GL_DEPTH_TEST); 
+        glUniform1i(isSunLoc, 0); 
+
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        glUniform3fv(viewPosLoc, 1, glm::value_ptr(camera.Position));
+        glUniform3fv(skyColorLoc, 1, glm::value_ptr(skyColor));
+
+        float time = (float)glfwGetTime();
+        float orbitSpeed = 0.01f;
+        
+        glm::vec3 currentSunPos = glm::vec3(
+            0.0f, 
+            sin(time * orbitSpeed) * 50.0f, 
+            -cos(time * orbitSpeed) * 50.0f
+        );
+        
+        glm::vec3 sunDirection = glm::normalize(currentSunPos);
+        glUniform3fv(sunDirLoc, 1, glm::value_ptr(sunDirection));
+
         for (auto const& [coord, chunk] : activeChunks) {
-            
             glBindVertexArray(chunk->VAO);
-            
             glm::mat4 chunkModel = glm::mat4(1.0f); 
             chunkModel = glm::translate(chunkModel, glm::vec3(chunk->chunkX * CHUNK_WIDTH, 0.0f, chunk->chunkZ * CHUNK_WIDTH));
-            
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(chunkModel));
 
-            // Draw the chunk
             int vertexCount = chunk->meshVertices.size() / 3;
             glDrawArrays(GL_TRIANGLES, 0, vertexCount);
         }
-        glDisable(GL_DEPTH_TEST); 
-        
-        // 2. Use the simple UI shader
+
+        glDisable(GL_DEPTH_TEST); // Draw on top of blocks
         glUseProgram(ui.uiShaderProgram); 
         
-        // 3. Draw the 4 vertices as GL_LINES instead of GL_TRIANGLES
         glBindVertexArray(ui.crosshairVAO);
         glDrawArrays(GL_LINES, 0, 4); 
-        
-        // 4. Turn depth testing back on for the next 3D frame!
-        glEnable(GL_DEPTH_TEST);
 
-        // Swap buffers and poll IO events
-        
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -238,7 +393,6 @@ uint8_t getBlockAt(int globalX, int globalY, int globalZ) {
     // If we are above or below the world boundaries, treat it as air
     if (globalY < 0 || globalY >= CHUNK_HEIGHT) return 0; 
 
-    // Find which chunk these coordinates belong to
     int chunkX = static_cast<int>(std::floor(static_cast<float>(globalX) / CHUNK_WIDTH));
     int chunkZ = static_cast<int>(std::floor(static_cast<float>(globalZ) / CHUNK_WIDTH));
     
@@ -259,7 +413,6 @@ bool checkCollision(glm::vec3 pos) {
     float playerHeight = 1.8f;
     float eyeHeight = 1.5f; // Distance from feet to the camera/eyes
 
-    // Calculate the borders of the bounding box
     float minX = pos.x - (playerWidth / 2.0f);
     float maxX = pos.x + (playerWidth / 2.0f);
     float minY = pos.y - eyeHeight;
@@ -297,16 +450,12 @@ void processInput(GLFWwindow *window)
         
     glm::vec3 oldPos = camera.Position;
 
-    // ==========================================
-    // 1. HORIZONTAL MOVEMENT (Walking)
-    // ==========================================
     float currentSpeed = camera.MovementSpeed * deltaTime;
     static double lastBreakTime = 0.0;
 
     static double lastPlaceTime = 0.0;
 
     double currentTime = glfwGetTime();
-    // Flatten the directional vectors so looking up/down doesn't affect walking speed
     glm::vec3 flatFront = glm::normalize(glm::vec3(camera.Front.x, 0.0f, camera.Front.z));
     glm::vec3 flatRight = glm::normalize(glm::vec3(camera.Right.x, 0.0f, camera.Right.z));
 
@@ -324,55 +473,40 @@ void processInput(GLFWwindow *window)
     if(glfwGetKey(window,GLFW_KEY_7) == GLFW_PRESS) actions.block_type = 8;
     if(glfwGetKey(window,GLFW_KEY_8) == GLFW_PRESS) actions.block_type = 9;
     if(glfwGetKey(window,GLFW_KEY_9) == GLFW_PRESS) actions.block_type = 10;
-    // Apply and check X axis collision
     camera.Position.x += horizontalDelta.x;
     if (checkCollision(camera.Position)) camera.Position.x = oldPos.x;
 
-    // Apply and check Z axis collision
     camera.Position.z += horizontalDelta.z;
     if (checkCollision(camera.Position)) camera.Position.z = oldPos.z;
 
-    // ==========================================
-    // 2. VERTICAL MOVEMENT (Gravity & Jumping)
-    // ==========================================
     float gravity = -25.0f; // Blocks per second squared
     float jumpForce = 9.0f; // Initial upward burst
 
-    // Accelerate downward over time
     camera.verticalVelocity += gravity * deltaTime;
 
-    // Trigger jump ONLY if the player is resting on a solid block
     if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && camera.isGrounded) {
         camera.verticalVelocity = jumpForce;
         camera.isGrounded = false; 
     }
 
-    // Apply the velocity to our actual Y position
     camera.Position.y += camera.verticalVelocity * deltaTime;
 
-    // Assume we are in the air until we prove otherwise
     camera.isGrounded = false; 
 
-    // Check Y axis collision
     if (checkCollision(camera.Position)) {
         camera.Position.y = oldPos.y; // Revert position to avoid clipping
         
-        // If we were falling and hit something, we hit the floor
         if (camera.verticalVelocity < 0.0f) {
             camera.isGrounded = true; 
         }
         
-        // Whether we hit the floor or bumped our head on the ceiling, stop vertical momentum
         camera.verticalVelocity = 0.0f; 
     }
 
-    // Keep coordinate trackers in sync
     camera.xCoords = camera.Position.x;
     camera.yCoords = camera.Position.y;
     camera.zCoords = camera.Position.z;
 
-    // ... (Keep your existing block breaking/placing code below this) ...
-    // Breaking Blocks (Left Click)
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
         if (currentTime - lastBreakTime > 0.2) { 
             RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
@@ -383,8 +517,7 @@ void processInput(GLFWwindow *window)
         }
     }
 
-    // Placing Blocks (G Key)
-    if(glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS){
+    if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS){
         if (currentTime - lastPlaceTime > 0.2) {
             RaycastResult ray = actions.getLookingAt(camera.Position, glm::normalize(camera.Front), 5.0f, activeChunks);
             if(ray.hit){
@@ -393,6 +526,28 @@ void processInput(GLFWwindow *window)
             lastPlaceTime = currentTime; 
         }
     }
+
+    static bool f11PressedLastFrame = false;
+    static bool isFullscreen = false;
+    static int winPosX, winPosY, winWidth, winHeight; 
+
+    bool f11Pressed = glfwGetKey(window, GLFW_KEY_F11) == GLFW_PRESS;
+    
+    if (f11Pressed && !f11PressedLastFrame) {
+        isFullscreen = !isFullscreen;
+
+        if (isFullscreen) {
+            glfwGetWindowPos(window, &winPosX, &winPosY);
+            glfwGetWindowSize(window, &winWidth, &winHeight);
+            GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+            const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+            glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+        } else {
+            glfwSetWindowMonitor(window, nullptr, winPosX, winPosY, winWidth, winHeight, 0);
+        }
+    }
+    
+    f11PressedLastFrame = f11Pressed;
 }
 
 
@@ -419,5 +574,5 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height){
-
+    glViewport(0, 0, width, height);
 }

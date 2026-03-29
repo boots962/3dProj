@@ -56,20 +56,16 @@ public:
         updateCameraVectors();
     }
 
-    // Returns the view matrix calculated using Euler Angles and the LookAt Matrix
     glm::mat4 GetViewMatrix()
     {
         return glm::lookAt(Position, Position + Front, Up);
     }
 
-    // Processes input received from a keyboard
     void ProcessKeyboard(Camera_Movement direction, float deltaTime)
 {
     float velocity = MovementSpeed * deltaTime;
     
-    // Create a flattened version of the Front vector
     glm::vec3 flatFront = glm::normalize(glm::vec3(Front.x, 0.0f, Front.z));
-    // Create a flattened version of the Right vector
     glm::vec3 flatRight = glm::normalize(glm::vec3(Right.x, 0.0f, Right.z));
 
     if (direction == FORWARD)
@@ -81,7 +77,6 @@ public:
     if (direction == RIGHT)
         Position += flatRight * velocity;
     
-    // UP and DOWN can stay the same, or you can map UP to a "Jump" variable later!
     if(direction == UP)
         Position += WorldUp * velocity;
     if(direction == DOWN)
@@ -92,7 +87,6 @@ public:
     zCoords = Position[2];
 }
 
-    // Processes input received from a mouse input system
     void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true)
     {
         xoffset *= MouseSensitivity;
@@ -101,7 +95,6 @@ public:
         Yaw   += xoffset;
         Pitch += yoffset;
 
-        // Make sure that when pitch is out of bounds, screen doesn't get flipped
         if (constrainPitch)
         {
             if (Pitch > 89.0f)
@@ -110,12 +103,10 @@ public:
                 Pitch = -89.0f;
         }
 
-        // Update Front, Right and Up Vectors using the updated Euler angles
         updateCameraVectors();
     }
 
 private:
-    // Calculates the front vector from the Camera's (updated) Euler Angles
     void updateCameraVectors()
     {
         glm::vec3 front;
@@ -124,7 +115,6 @@ private:
         front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
         Front = glm::normalize(front);
         looking_at = {front.x, front.y, front.z};
-        // Also re-calculate the Right and Up vector
         Right = glm::normalize(glm::cross(Front, WorldUp)); 
         Up    = glm::normalize(glm::cross(Right, Front));
     }
