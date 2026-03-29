@@ -16,7 +16,7 @@
             "${workspaceFolder}/src/*.cpp",
             "-o",
             "${workspaceFolder}/main.exe",
-
+            "-I", "C:/msys64/ucrt64/include",
             "-I", "C:/msys64/mingw64/include",
             // Windows Specific Linkin
             "-static-libgcc",
